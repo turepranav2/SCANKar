@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# React Native
+.gradle/
+android/app/build/
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/build/
+*.xcworkspace
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Metro
+.metro-health-check*
+
+# Temp
+*.log
+tmp/

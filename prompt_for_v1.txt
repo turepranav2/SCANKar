@@ -1,0 +1,541 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║          SCANKAR — INDUSTRIAL VERSION (v1) MASTER BUILD PROMPT          ║
+║     Antigravity + Claude Opus 4.6 + Stitch via MCP — Full Pipeline      ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+IMPORTANT — READ BEFORE ANYTHING ELSE:
+This prompt has THREE sequential phases. Do NOT skip ahead.
+Phase 1 must be 100% complete before Phase 2 begins.
+Phase 2 must be 100% complete before Phase 3 begins.
+
+════════════════════════════════════════════════════════════════════════════
+▌VERSION CONTEXT
+════════════════════════════════════════════════════════════════════════════
+
+This prompt is for VERSION 1 — INDUSTRIAL VERSION ONLY.
+Full focus is on Version 1. Version 2 (public) is acknowledged but NOT built now.
+
+VERSION 1 — INDUSTRIAL (Endurance Employees Only):
+  - App is locked behind an ACCESS CODE on first launch
+  - Endurance will distribute 20–30 unique codes to employees
+  - On first install (App Store / Play Store / direct APK), the app shows
+    ONLY an access code entry screen — nothing else is accessible
+  - Employee pastes/types the correct code → app unlocks permanently for
+    that device → code cannot be reused on another device
+  - Wrong code → error message, app stays locked
+  - Codes are hardcoded in the app (offline validation, no server needed)
+  - Once unlocked, full app is available with no further code prompts
+  - Locked screen has: Endurance logo, "Enter Access Code" field,
+    "Activate" button, support contact info
+
+VERSION 2 — PUBLIC VERSION (Future, Not Built Now):
+  Anyone installs and uses without any code. Noted for future reference only.
+
+════════════════════════════════════════════════════════════════════════════
+▌PHASE 1 — DOCUMENTATION GENERATION (DO THIS FIRST, NOTHING ELSE)
+════════════════════════════════════════════════════════════════════════════
+
+You are Claude Opus 4.6. Before any UI, before any code, before anything —
+generate ALL of the following documents in full. These are not summaries.
+These are complete, production-grade documents a real engineering team
+would use to build this app from scratch.
+
+SAVE ALL DOCUMENTS inside the project folder under:
+  /ScanKar/docs/
+
+Create this exact folder structure:
+  /ScanKar/
+  └── docs/
+      ├── 01_BRD.md          ← Business Requirements Document
+      ├── 02_PRD.md          ← Product Requirements Document
+      ├── 03_SRS.md          ← Software Requirements Specification
+      ├── 04_TDD.md          ← Technical Design Document
+      └── 05_TestPlan.md     ← Test Plan
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENT 1 — BRD.md (Business Requirements Document)
+────────────────────────────────────────────────────────────────────────────
+Include ALL of the following sections fully written out:
+
+1. Executive Summary
+2. Business Objectives and Goals
+   - Why SCANकर is being built
+   - What business problem it solves for Endurance
+   - Expected business outcomes
+3. Stakeholders
+   - Endurance (company), Endurance employees (end users), Development team
+4. Business Scope
+   - In-scope: Version 1 Industrial App
+   - Out-of-scope: Version 2 Public App (future)
+5. Business Constraints
+   - 100% offline operation
+   - Zero recurring cost
+   - Access-code gated for employees
+   - Cross-platform (Android + iOS)
+6. Success Metrics
+   - OCR accuracy targets
+   - Processing speed targets
+   - Employee adoption targets
+7. Risks and Mitigations
+8. Timeline and Milestones (modular development schedule)
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENT 2 — PRD.md (Product Requirements Document)
+────────────────────────────────────────────────────────────────────────────
+Include ALL of the following sections fully written out:
+
+1. Product Vision and Purpose
+2. Target Users
+   - Endurance employees (Version 1 only)
+   - User personas with use cases
+3. Feature List — complete, prioritized (P0/P1/P2)
+   - Access Code Lock System (P0)
+   - Camera Capture with smart overlay (P0)
+   - Auto document type detection (P0)
+   - Table extraction + structure preservation (P0)
+   - Paragraph/text extraction (P0)
+   - Form/field extraction (P1)
+   - OCR for printed text (P0)
+   - OCR for handwritten text (P0)
+   - Hindi + English script support (P1)
+   - Interactive editable review screen (P0)
+   - Manual data entry / editing after extraction (P0)
+   - Export: Excel, PDF, Word, CSV, JSON (P0)
+   - Scan history and storage (P1)
+   - Dark + Light mode (P1)
+   - ML model status screen (P2)
+4. User Stories (full Gherkin format for each feature)
+5. User Flows (text-based flow diagrams)
+6. Out of Scope for Version 1
+7. Acceptance Criteria per feature
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENT 3 — SRS.md (Software Requirements Specification)
+────────────────────────────────────────────────────────────────────────────
+Include ALL of the following sections fully written out:
+
+1. Introduction and Purpose
+2. Overall Description
+3. Functional Requirements (numbered FR-001, FR-002, etc.)
+   - Access Code System requirements
+   - Camera and image capture requirements
+   - ML pipeline requirements (all 7 models)
+   - Table detection and reconstruction requirements
+   - Paragraph detection requirements
+   - Form detection requirements
+   - OCR requirements (printed + handwritten)
+   - Edit and manual entry requirements
+   - Export requirements per format
+   - History and storage requirements
+   - Settings requirements
+   - Offline operation requirements
+4. Non-Functional Requirements (numbered NFR-001, etc.)
+   - Performance: processing time <5 seconds per scan
+   - Accuracy: printed text >95%, clear handwriting >85%
+   - Storage: total ML models ~130MB
+   - Compatibility: Android 6.0+, iOS 12.0+
+   - Offline: 100% no internet required
+   - Security: access code validation, no data leaves device
+5. System Constraints
+6. Assumptions and Dependencies
+7. Data Flow Diagrams (text-based)
+8. Error Handling Requirements
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENT 4 — TDD.md (Technical Design Document)
+────────────────────────────────────────────────────────────────────────────
+Include ALL of the following sections fully written out:
+
+1. System Architecture Overview
+   - Component diagram (text-based)
+   - React Native CLI project structure
+2. Access Code Module Design
+   - Code validation logic (offline, hardcoded)
+   - Device binding approach (AsyncStorage + device ID)
+   - Code list management (how 20–30 codes are embedded)
+3. ML Pipeline Architecture
+   - All 7 models: purpose, size, input/output specs
+     1. Image Enhancement (~10MB)
+     2. Document Layout Analysis — DocLayNet/LayoutLMv3 (~20MB)
+     3. Table Detection + Structure — TableNet/TATR (~15MB)
+     4. Text Detection — CRAFT (~25MB)
+     5. Printed Text OCR — PaddleOCR lite (~20MB)
+     6. Handwriting Recognition — TrOCR-small (~35MB)
+     7. Language/Script Detection (~5MB)
+   - Pipeline routing logic (Table / Paragraph / Form / Mixed branches)
+   - TFLite integration architecture
+4. Computer Vision Module Design (OpenCV)
+   - All preprocessing steps with parameters
+5. Data Models and Schemas
+   - Scan object schema
+   - Table data schema
+   - Paragraph data schema
+   - Export payload schemas
+6. Navigation Architecture (React Navigation v6)
+   - Screen map and route names
+7. State Management Design (Context API)
+8. Storage Design (AsyncStorage + MMKV)
+9. Export Engine Design (per format)
+10. Module Development Sequence
+    - Module 1: Camera + Crop + Enhancement
+    - Module 2: Document Type Detection
+    - Module 3: Table Pipeline
+    - Module 4: Paragraph Pipeline
+    - Module 5: Editor + Manual Entry
+    - Module 6: Export Engine
+    - Module 7: History + Storage
+    - Module 8: Settings + Model Manager
+11. ML Model Training Plan
+    - Which models need custom training
+    - Training data requirements
+    - Google Colab training schedule (triggered between Module 1→2 and 2→3)
+
+────────────────────────────────────────────────────────────────────────────
+DOCUMENT 5 — TestPlan.md (Test Plan)
+────────────────────────────────────────────────────────────────────────────
+Include ALL of the following sections fully written out:
+
+1. Test Strategy and Approach
+2. Scope of Testing (in-scope and out-of-scope)
+3. Test Environments (Android devices, iOS devices, emulators)
+4. Test Types
+   - Unit Tests (per module)
+   - Integration Tests (pipeline end-to-end)
+   - UI Tests (screen-by-screen)
+   - Performance Tests (processing time, memory)
+   - Offline Tests (no network scenarios)
+   - Access Code Tests (valid code, invalid code, reuse attempt)
+5. Test Cases (numbered TC-001, TC-002, etc.) for:
+   - Access code: correct code, wrong code, empty, reuse
+   - Camera: capture, flash, gallery import
+   - Document detection: table, paragraph, form, mixed
+   - OCR: printed English, printed Hindi, handwritten, mixed
+   - Export: each format, structure preservation
+   - Editor: tap edit, add row, delete column, undo, redo
+   - History: save, retrieve, delete, search
+   - Offline: all functions work without internet
+6. Acceptance Criteria
+7. Bug Reporting Process
+8. Testing Schedule aligned to development modules
+
+════════════════════════════════════════════════════════════════════════════
+▌PHASE 1 COMPLETION CHECK
+════════════════════════════════════════════════════════════════════════════
+
+After generating all 5 documents and saving them to /ScanKar/docs/:
+  ✅ 01_BRD.md — saved
+  ✅ 02_PRD.md — saved
+  ✅ 03_SRS.md — saved
+  ✅ 04_TDD.md — saved
+  ✅ 05_TestPlan.md — saved
+
+Confirm to the developer: "Phase 1 complete. All 5 documents saved to
+/ScanKar/docs/. Ready to proceed to Phase 2 — UI/UX prompt refinement.
+Please confirm to continue."
+
+STOP HERE. Wait for developer confirmation before starting Phase 2.
+
+════════════════════════════════════════════════════════════════════════════
+▌PHASE 2 — UI/UX PROMPT REFINEMENT (After developer confirms Phase 1)
+════════════════════════════════════════════════════════════════════════════
+
+You are Claude Opus 4.6. Now generate a fully refined, screen-by-screen
+UI/UX prompt for every single screen in the app. This refined prompt will
+be sent to Stitch via MCP to build the complete UI/UX.
+
+SAVE the refined UI prompt to:
+  /ScanKar/docs/06_Stitch_UI_Prompt.md
+
+The refined prompt must include for EACH of the 13 screens:
+  - Exact screen name and purpose
+  - Layout description (top bar, content area, bottom bar)
+  - Every component on screen with exact specs
+  - Color tokens (from the blue palette defined in Phase 3)
+  - Typography specs
+  - Spacing values
+  - Interactive states (default, pressed, disabled, error)
+  - Navigation actions from this screen
+  - Dark mode and light mode behavior
+  - Any animations or transitions
+
+SCREENS TO COVER (13 total):
+  Screen 00 — Access Code Lock Screen (NEW — Industrial Version)
+  Screen 01 — Splash / Onboarding
+  Screen 02 — Home Dashboard
+  Screen 03 — Camera Capture
+  Screen 04 — Image Preview & Crop
+  Screen 05 — Processing Screen
+  Screen 06 — Table Review Screen
+  Screen 07 — Paragraph Review Screen
+  Screen 08 — Table Editor Screen
+  Screen 09 — Export Screen
+  Screen 10 — History / Saved Scans
+  Screen 11 — Settings
+  Screen 12 — Model Status Screen
+
+After generating the refined prompt, confirm to developer:
+"Phase 2 complete. Refined UI/UX prompt saved to
+/ScanKar/docs/06_Stitch_UI_Prompt.md. Ready to send to Stitch via MCP.
+Please confirm to continue to Phase 3."
+
+STOP HERE. Wait for developer confirmation before starting Phase 3.
+
+════════════════════════════════════════════════════════════════════════════
+▌PHASE 3 — STITCH UI/UX BUILD VIA MCP (After developer confirms Phase 2)
+════════════════════════════════════════════════════════════════════════════
+
+// NOTE FOR DEVELOPER:
+// Phase 3 is handled by Stitch via MCP connection.
+// Antigravity will send the refined prompt from Phase 2 directly to Stitch.
+// Stitch builds the full UI/UX from that prompt.
+// Once Stitch completes the UI, we will fetch the components and
+// integrate them into the React Native codebase.
+// Do not write any React Native code yet — UI first, code after.
+
+Design Reference: https://stripe.com
+(Use ONLY for layout structure and typography patterns — NOT for colors)
+
+COLOR PALETTE — BLUE THEME (Use these exact values. Override stripe.com colors):
+
+  LIGHT MODE:
+    Background:         #F8FAFF
+    Surface/Cards:      #FFFFFF
+    Primary Blue:       #2563EB
+    Primary Hover:      #1D4ED8
+    Text Primary:       #0F172A
+    Text Secondary:     #475569
+    Border:             #BFDBFE
+    Input Background:   #EFF6FF
+    Success (>90%):     #22C55E
+    Warning (70–90%):   #F59E0B
+    Error (<70%):       #EF4444
+
+  DARK MODE:
+    Background:         #0F172A
+    Surface/Cards:      #1E293B
+    Primary Blue:       #3B82F6
+    Primary Hover:      #60A5FA
+    Text Primary:       #F1F5F9
+    Text Secondary:     #94A3B8
+    Border:             #1E40AF
+    Input Background:   #1E3A5F
+    Success (>90%):     #4ADE80
+    Warning (70–90%):   #FCD34D
+    Error (<70%):       #F87171
+
+TYPOGRAPHY:
+  Font: Inter | H1: 28sp Bold | H2: 22sp SemiBold | H3: 18sp SemiBold
+  Body: 15sp Regular | Caption: 12sp Regular | Button: 15sp SemiBold
+SPACING: 4 / 8 / 12 / 16 / 24 / 32 / 48px
+RADIUS: Buttons 10px | Cards 16px | Inputs 10px | Chips 20px
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 00 — ACCESS CODE LOCK SCREEN
+────────────────────────────────────────────────────────────────────────────
+Purpose: First and only screen shown on fresh install. Blocks all app access
+until a valid Endurance employee code is entered.
+
+Layout:
+  - Full screen, centered, Primary Blue gradient background (#1D4ED8 → #2563EB)
+  - Top 30%: Endurance logo (white) + "SCANकर" app name below in white 24sp Bold
+  - Middle: White card (border radius 20px, padding 32px) containing:
+    - Title: "Employee Access" — 20sp SemiBold, #0F172A
+    - Subtitle: "Enter your Endurance activation code to continue"
+      14sp Regular, #475569
+    - Code input field: large, centered, letter-spacing wide, 18sp
+      Placeholder: "XXXX-XXXX"
+      Border: 2px #BFDBFE, focus border: 2px #2563EB
+    - "Activate App" button: full width, Primary Blue, white text, 52px height
+    - Error state: red border on input + error message "Invalid code. Please
+      try again or contact your supervisor."
+    - Success state: green checkmark animation → app unlocks and navigates to
+      Splash/Onboarding on first use, or directly to Home on subsequent launches
+  - Bottom: "Need help? Contact: support@endurance.com" — 12sp, white 70%
+
+Behavior:
+  - Valid codes: hardcoded list of 20–30 unique alphanumeric codes in app
+  - On valid code: save unlocked state + device ID to AsyncStorage
+  - Code becomes invalid for reuse on another device after first activation
+  - On subsequent app opens: check AsyncStorage → if already unlocked, skip
+    this screen entirely and go straight to Home Dashboard
+  - Offline validation: no internet needed, all codes stored in app bundle
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 01 — SPLASH / ONBOARDING
+────────────────────────────────────────────────────────────────────────────
+  - Animated SCANकर logo on Primary Blue background
+  - Tagline: "Scan anything. Extract everything. Offline, always."
+  - 3 swipe cards:
+    Card 1: Camera icon — "Capture Any Document"
+             "Tables, handwriting, printed sheets — all supported"
+    Card 2: AI chip icon — "AI Extracts Instantly"
+             "7 offline ML models process everything on your device"
+    Card 3: Export icon — "Export in Any Format"
+             "Excel, PDF, Word, CSV — structure always preserved"
+  - Progress dots below cards
+  - "Get Started →" button (white bg, blue text) — shown on last card
+  - "Skip" text link top right
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 02 — HOME DASHBOARD
+────────────────────────────────────────────────────────────────────────────
+  - Top bar: "SCANकर" left, settings icon + theme toggle right
+  - Hero card: Primary Blue gradient, "Scan a Document", large scan icon,
+    subtitle "Point camera at any hard copy"
+  - Quick stats row: 3 small cards — Total Scans / This Week / Exports
+  - Recent Scans: horizontal scroll, thumbnail cards with doc type badge + date
+  - FAB: Primary Blue, camera icon, bottom right, 60x60px
+  - Bottom nav: Home (active) / History / Settings
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 03 — CAMERA CAPTURE
+────────────────────────────────────────────────────────────────────────────
+  - Full-screen camera preview
+  - Blue corner bracket overlay (animated, snaps to document edges)
+  - Real-time tip at top: "Align document edges with the guide"
+  - Document type selector chips: Auto / Table / Text / Form
+  - Bottom controls: Flash toggle | Capture button (large, white/blue ring) | Gallery
+  - Auto-capture toggle in top right
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 04 — IMAGE PREVIEW & CROP
+────────────────────────────────────────────────────────────────────────────
+  - Full image with draggable crop handles (blue corners)
+  - Rotate left/right buttons
+  - Bottom drawer: Brightness + Contrast sliders
+  - "Enhance" one-tap button (magic wand icon, blue)
+  - "Process →" Primary Blue CTA bottom right | "Retake" secondary bottom left
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 05 — PROCESSING SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - Centered pulsing blue document icon animation
+  - Phase progress list (each animates in as active):
+    ● Enhancing Image
+    ● Detecting Document Type
+    ● Extracting Structure
+    ● Reading Text
+    ● Validating Data
+  - Blue progress bar fills smoothly
+  - "Estimated time: ~3 seconds" below bar
+  - Back button disabled with gentle toast: "Processing in progress..."
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 06 — TABLE REVIEW SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - Top panel: original image (pinch-to-zoom), drag handle divider
+  - Bottom panel: extracted table
+    - Cells color-coded: green (>90%), yellow (70–90%), red (<70%)
+    - Tap cell: shows confidence % tooltip + inline edit
+    - Horizontal + vertical scroll
+  - Top bar: confidence badge, "Edit" button, "Export" button
+  - Doc type badge: "TABLE — 24 rows × 6 cols"
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 07 — PARAGRAPH REVIEW SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - Thumbnail of original (tap to full-screen)
+  - Extracted text with heading hierarchy
+  - Confidence-colored word highlights
+  - Tap paragraph → inline edit mode
+  - "Add Paragraph" button at bottom
+  - Same top bar as Screen 06
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 08 — TABLE EDITOR SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - Full-screen editable table grid
+  - Tap cell → keyboard, cell editable
+  - Long-press cell → context menu:
+    Insert Row Above / Below | Insert Column Left / Right
+    Delete Row / Delete Column | Merge / Split | Clear | Copy
+  - "Add Row" at table bottom | "Add Column" at table right
+  - Manual entry: type into any empty cell freely
+  - Undo / Redo in top bar
+  - "Done" saves and returns to Review
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 09 — EXPORT SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - Document preview card top (thumbnail + metadata)
+  - Format selector tiles (large, tappable):
+    📊 Excel (.xlsx) | 📄 PDF | 📝 Word (.docx) | 📋 CSV | {} JSON
+  - Options: "Include confidence scores" toggle | "Include original image" toggle
+  - "Export & Share" Primary Blue full-width CTA
+  - Share sheet opens after export
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 10 — HISTORY / SAVED SCANS
+────────────────────────────────────────────────────────────────────────────
+  - Search bar top
+  - Filter chips: All / Tables / Paragraphs / Forms / Today / This Week
+  - Scan list cards: thumbnail | name | type badge | date | confidence
+  - Swipe left → Delete | Swipe right → Export
+  - Tap → opens review screen
+  - Sort: Date / Name / Confidence
+  - Empty state: illustration + "No scans yet"
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 11 — SETTINGS
+────────────────────────────────────────────────────────────────────────────
+  - Theme toggle: Light / Dark / System
+  - Default export format
+  - Auto-enhance on capture: toggle
+  - Auto-capture when aligned: toggle
+  - OCR language: English / Hindi / Auto
+  - Confidence threshold slider (default 70%)
+  - Storage used + Clear Cache
+  - ML Models → links to Screen 12
+  - App Version | Endurance logo | Support contact
+
+────────────────────────────────────────────────────────────────────────────
+SCREEN 12 — MODEL STATUS SCREEN
+────────────────────────────────────────────────────────────────────────────
+  - List of 7 ML models:
+    Each row: model name | purpose | size | status dot (green/yellow/red)
+  - "Reload All Models" button
+  - Total storage used
+  - Avg processing time per document type
+
+────────────────────────────────────────────────────────────────────────────
+STITCH BUILD INSTRUCTIONS
+────────────────────────────────────────────────────────────────────────────
+
+Step 1: Visit stripe.com — extract layout structure and typography patterns only
+Step 2: Apply the BLUE COLOR PALETTE defined above — override all stripe colors
+Step 3: Build design system tokens: all colors, typography, spacing, radius
+Step 4: Build reusable components:
+        PrimaryButton, SecondaryButton, Card, ConfidenceBadge,
+        TopBar, BottomNav, FAB, DocTypeBadge, ScanThumbnailCard,
+        CodeInputField, PhaseProgressItem
+Step 5: Build screens in this order:
+        Screen 00 → Screen 02 → Screen 03 → Screen 06 → Screen 08
+        → Screen 09 → Screen 10 → Screen 05 → Screen 04 → Screen 07
+        → Screen 11 → Screen 12 → Screen 01
+Step 6: Wire navigation flows:
+        [Fresh install] → Screen 00 → Screen 01 → Screen 02
+        [Returning user, already unlocked] → Screen 02 directly
+        Screen 02 → Screen 03 → Screen 04 → Screen 05 → Screen 06/07
+        → Screen 08 → Screen 09 → [share sheet]
+        Screen 02 → Screen 10 → [tap scan] → Screen 06/07
+Step 7: Apply both light and dark mode to every screen
+Step 8: Add micro-animations: button press scale, card entrance fade,
+        progress bar fill, confidence color transitions, unlock success animation
+
+// DEVELOPER NOTE:
+// Start building UI and UX in Stitch only.
+// Once Stitch completes all 13 screens, we will fetch the components
+// and integrate them into the React Native codebase.
+// Do not write any React Native code yet — UI/UX first, code after.
+// This is intentional workflow separation for clean design-to-dev handoff.
+
+────────────────────────────────────────────────────────────────────────────
+END OF PROMPT
+────────────────────────────────────────────────────────────────────────────
+
+FINAL INSTRUCTION TO MODEL:
+Execute Phase 1 immediately. Generate all 5 documents fully and save them
+to /ScanKar/docs/ with the exact filenames specified. Do not summarize —
+write every section in full. After saving all 5 files, confirm to the
+developer and wait. Do not proceed to Phase 2 or Phase 3 without
+explicit developer confirmation.
