@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../context/AuthContext';
 import { ROUTES } from './routes';
 
 // Real screens
@@ -15,9 +16,22 @@ export type AuthStackParamList = {
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
-export const AuthNavigator: React.FC = () => {
+interface AuthNavigatorProps {
+    skipToOnboarding?: boolean;
+}
+
+export const AuthNavigator: React.FC<AuthNavigatorProps> = ({ skipToOnboarding }) => {
+    const { isUnlocked } = useAuth();
+
+    // If the app is already unlocked (user just entered a valid code),
+    // OR if we were told to skip to onboarding, start at the Onboarding screen.
+    const initialRoute = (isUnlocked || skipToOnboarding)
+        ? ROUTES.ONBOARDING
+        : ROUTES.ACCESS_CODE;
+
     return (
         <Stack.Navigator
+            initialRouteName={initialRoute}
             screenOptions={{
                 headerShown: false,
                 animation: 'fade',
