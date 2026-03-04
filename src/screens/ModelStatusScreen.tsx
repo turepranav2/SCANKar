@@ -1,7 +1,7 @@
 // SCANKar — Model Status Screen (Screen 12)
-// Shows status of all 7 TFLite ML models
+// Shows status of all 7 TFLite ML models via ModelManager
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,30 +13,20 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../context/ThemeContext';
 import TopBar from '../components/common/TopBar';
 import { SettingsStackParamList } from '../navigation/MainNavigator';
-import { ML_MODELS } from '../constants/mlModels';
-import { MLModelInfo, ModelStatusValue } from '../models/MLModel';
+import { ModelManager } from '../ml';
+import type { ModelStatus } from '../ml';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 
 type NavProp = NativeStackNavigationProp<SettingsStackParamList>;
 
-// Simulate model statuses
-const MODEL_STATUSES: Record<string, { status: ModelStatusValue; loadTimeMs?: number }> = {
-    image_enhancement: { status: 'loaded', loadTimeMs: 120 },
-    document_detector: { status: 'loaded', loadTimeMs: 85 },
-    table_recognizer: { status: 'loaded', loadTimeMs: 210 },
-    cell_extractor: { status: 'loaded', loadTimeMs: 95 },
-    text_recognizer_en: { status: 'loaded', loadTimeMs: 180 },
-    text_recognizer_hi: { status: 'idle' },
-    layout_analyzer: { status: 'loaded', loadTimeMs: 150 },
-};
+type StatusKey = ModelStatus['status']; // 'loaded' | 'missing' | 'error' | 'loading'
 
-const STATUS_CONFIG: Record<ModelStatusValue, { color: string; bg: string; label: string; icon: string }> = {
-    idle: { color: '#94A3B8', bg: '#F1F5F9', label: 'Idle', icon: '○' },
-    loading: { color: '#F59E0B', bg: '#FFFBEB', label: 'Loading', icon: '⏳' },
+const STATUS_CONFIG: Record<StatusKey, { color: string; bg: string; label: string; icon: string }> = {
     loaded: { color: '#22C55E', bg: '#F0FDF4', label: 'Ready', icon: '✓' },
+    missing: { color: '#F59E0B', bg: '#FFFBEB', label: 'Awaiting model', icon: '○' },
+    loading: { color: '#3B82F6', bg: '#EFF6FF', label: 'Loading', icon: '⏳' },
     error: { color: '#EF4444', bg: '#FEF2F2', label: 'Error', icon: '✕' },
-    unloaded: { color: '#94A3B8', bg: '#F1F5F9', label: 'Unloaded', icon: '—' },
 };
 
 const formatSize = (bytes: number): string => {
@@ -48,18 +38,19 @@ const ModelStatusScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const { colors } = useTheme();
 
-    const totalSize = ML_MODELS.reduce((sum, m) => sum + m.sizeBytes, 0);
-    const loadedCount = Object.values(MODEL_STATUSES).filter(s => s.status === 'loaded').length;
+    const models = useMemo(() => ModelManager.getModelStatus(), []);
+    const totalSize = models.reduce((sum, m) => sum + m.sizeMB * 1024 * 1024, 0);
+    const loadedCount = models.filter(m => m.status === 'loaded').length;
+    const missingCount = models.filter(m => m.status === 'missing').length;
 
-    const renderModel = ({ item }: { item: MLModelInfo }) => {
-        const statusInfo = MODEL_STATUSES[item.id] || { status: 'idle' as ModelStatusValue };
-        const config = STATUS_CONFIG[statusInfo.status];
+    const renderModel = ({ item }: { item: ModelStatus }) => {
+        const config = STATUS_CONFIG[item.status];
 
         return (
             <View style={[styles.modelCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.modelHeader}>
                     <View style={styles.modelNameRow}>
-                        <Text style={[styles.modelName, { color: colors.text1 }]}>{item.name}</Text>
+                        <Text style={[styles.modelName, { color: colors.text1 }]}>{item.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
                         <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
                             <Text style={[styles.statusIcon, { color: config.color }]}>{config.icon}</Text>
                             <Text style={[styles.statusLabel, { color: config.color }]}>{config.label}</Text>
@@ -71,22 +62,12 @@ const ModelStatusScreen: React.FC = () => {
                 <View style={[styles.modelDetails, { borderTopColor: colors.border }]}>
                     <View style={styles.detailItem}>
                         <Text style={[styles.detailLabel, { color: colors.text2 }]}>Size</Text>
-                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{formatSize(item.sizeBytes)}</Text>
+                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{item.sizeMB} MB</Text>
                     </View>
                     <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: colors.text2 }]}>Input</Text>
-                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{item.inputShape.join('×')}</Text>
+                        <Text style={[styles.detailLabel, { color: colors.text2 }]}>File</Text>
+                        <Text style={[styles.detailValue, { color: colors.text1 }]} numberOfLines={1}>{item.filename}</Text>
                     </View>
-                    <View style={styles.detailItem}>
-                        <Text style={[styles.detailLabel, { color: colors.text2 }]}>Quantized</Text>
-                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{item.quantized ? 'Yes' : 'No'}</Text>
-                    </View>
-                    {statusInfo.loadTimeMs && (
-                        <View style={styles.detailItem}>
-                            <Text style={[styles.detailLabel, { color: colors.text2 }]}>Load</Text>
-                            <Text style={[styles.detailValue, { color: colors.text1 }]}>{statusInfo.loadTimeMs}ms</Text>
-                        </View>
-                    )}
                 </View>
             </View>
         );
@@ -100,11 +81,21 @@ const ModelStatusScreen: React.FC = () => {
                 onLeftPress={() => navigation.goBack()}
             />
 
+            {/* Info banner when models are missing */}
+            {missingCount > 0 && (
+                <View style={[styles.infoBanner, { backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }]}>
+                    <Text style={styles.infoBannerIcon}>ℹ️</Text>
+                    <Text style={styles.infoBannerText}>
+                        Some models pending — using smart mock data. Drop .tflite files into assets/models/ to activate.
+                    </Text>
+                </View>
+            )}
+
             {/* Summary Card */}
             <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.summaryRow}>
                     <View style={styles.summaryItem}>
-                        <Text style={[styles.summaryValue, { color: colors.primary }]}>{ML_MODELS.length}</Text>
+                        <Text style={[styles.summaryValue, { color: colors.primary }]}>{models.length}</Text>
                         <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Total</Text>
                     </View>
                     <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
@@ -122,9 +113,9 @@ const ModelStatusScreen: React.FC = () => {
 
             {/* Model List */}
             <FlatList
-                data={ML_MODELS}
+                data={models}
                 renderItem={renderModel}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.name}
                 contentContainerStyle={styles.list}
                 showsVerticalScrollIndicator={false}
             />
@@ -134,6 +125,27 @@ const ModelStatusScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+
+    // Info Banner
+    infoBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: spacing.base,
+        marginTop: spacing.md,
+        paddingHorizontal: spacing.base,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.card,
+        borderWidth: 1,
+        gap: 8,
+    },
+    infoBannerIcon: { fontSize: 16 },
+    infoBannerText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#92400E',
+        fontFamily: typography.caption.fontFamily,
+        lineHeight: 16,
+    },
 
     // Summary
     summaryCard: {

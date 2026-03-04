@@ -1,5 +1,5 @@
 // SCANKar — Processing Screen (Screen 05)
-// Features: 5-phase animation, realistic mock data generation based on image size, AsyncStorage integration
+// Features: 5-phase animation, ML pipeline integration with auto-fallback, AsyncStorage integration
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
@@ -8,7 +8,6 @@ import {
     StyleSheet,
     Animated,
     Easing,
-    Image,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +20,7 @@ import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { DocumentType, Scan, ProcessingPhase } from '../models/Scan';
 import { saveScan } from '../services/storage/ScanStorage';
+import { MLPipeline } from '../ml';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ProcessRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.PROCESSING>;
@@ -76,43 +76,35 @@ const ProcessingScreen: React.FC = () => {
 
         const processPipeline = async () => {
             try {
-                // Phase 1: Enhancing (800ms)
+                // Phase 1: Enhancing (ImageEnhancer running)
                 setProcessingPhase(PHASE_KEYS[0]);
                 setCurrentPhaseIndex(0);
                 Animated.timing(progressAnim, { toValue: 1 / 5, duration: 800, useNativeDriver: false }).start();
-                await new Promise<void>(r => setTimeout(() => r(), 800));
+                await new Promise<void>(r => setTimeout(() => r(), 400));
                 if (!isMounted) return;
 
-                // Phase 2: Detecting Type (1000ms)
+                // Phase 2: Detecting Type (DocumentClassifier running)
                 setProcessingPhase(PHASE_KEYS[1]);
                 setCurrentPhaseIndex(1);
-                Animated.timing(progressAnim, { toValue: 2 / 5, duration: 1000, useNativeDriver: false }).start();
-
-                let width = 1000, height = 1500;
-                if (imageUri) {
-                    try {
-                        await new Promise<void>((resolve) => {
-                            Image.getSize(imageUri, (w, h) => { width = w; height = h; resolve(); }, () => resolve());
-                        });
-                    } catch (e) { }
-                }
-                const detectedType: DocumentType =
-                    (docTypePassed && docTypePassed !== 'auto') ? (docTypePassed as DocumentType) : (width > height ? 'paragraph' : 'table');
-
-                await new Promise<void>(r => setTimeout(() => r(), 1000));
+                Animated.timing(progressAnim, { toValue: 2 / 5, duration: 800, useNativeDriver: false }).start();
+                await new Promise<void>(r => setTimeout(() => r(), 400));
                 if (!isMounted) return;
 
-                // Phase 3: Extracting Structure (800ms)
+                // Phase 3: Extracting Structure (TableDetector / TextDetector running)
                 setProcessingPhase(PHASE_KEYS[2]);
                 setCurrentPhaseIndex(2);
                 Animated.timing(progressAnim, { toValue: 3 / 5, duration: 800, useNativeDriver: false }).start();
-                await new Promise<void>(r => setTimeout(() => r(), 800));
+
+                // Run the full ML pipeline (enhance → classify → detect → OCR)
+                const result = await MLPipeline.processImage(imageUri, docTypePassed);
                 if (!isMounted) return;
 
-                // Phase 4: Reading Text (1200ms)
+                // Phase 4: Reading Text (OCR complete — result already contains everything)
                 setProcessingPhase(PHASE_KEYS[3]);
                 setCurrentPhaseIndex(3);
-                Animated.timing(progressAnim, { toValue: 4 / 5, duration: 1200, useNativeDriver: false }).start();
+                Animated.timing(progressAnim, { toValue: 4 / 5, duration: 600, useNativeDriver: false }).start();
+
+                const detectedType: DocumentType = result.docType === 'form' ? 'table' : result.docType;
 
                 const newScan: Scan = {
                     id: `scan-${Date.now()}`,
@@ -122,25 +114,48 @@ const ProcessingScreen: React.FC = () => {
                     originalImageUri: imageUri,
                     enhancedImageUri: imageUri,
                     thumbnailUri: imageUri,
-                    documentType: detectedType === 'form' ? 'table' : detectedType, // Map form to table logic for UI
-                    overallConfidence: Math.floor(Math.random() * (97 - 85 + 1)) + 85, // 85-97%
-                    processingTimeMs: 4400,
-                    modelsUsed: ['yolov8-doc', 'tesseract-v5'],
+                    documentType: detectedType,
+                    overallConfidence: result.overallConfidence,
+                    processingTimeMs: result.processingTimeMs,
+                    modelsUsed: ['ml-pipeline-v1'],
                     languageDetected: 'English',
                     isEdited: false,
                     editHistory: [],
                 };
 
-                if (newScan.documentType === 'paragraph') {
-                    // Realistic mockup for paragraph
+                // Map ML result to Scan model
+                if (detectedType === 'paragraph') {
                     newScan.paragraphData = {
-                        blocks: [
-                            { id: 'b1', text: 'INSPECTION REPORT\nDate: 2026-03-04\nLocation: Site Alpha', confidence: 96, boundingBox: { x: 10, y: 10, width: 800, height: 150 }, language: 'English' },
-                            { id: 'b2', text: 'All units verify standard pressure tolerances are met. Warning sequence bypassed on manual override. Review pending before system restart.', confidence: 89, boundingBox: { x: 10, y: 200, width: 800, height: 250 }, language: 'English' },
-                        ]
+                        blocks: (result.paragraphData || []).map((b, i) => ({
+                            id: `b${i + 1}`,
+                            text: b.text,
+                            confidence: Math.round(b.confidence * 100),
+                            boundingBox: b.boundingBox,
+                            language: b.language.charAt(0).toUpperCase() + b.language.slice(1),
+                        })),
+                    };
+                } else if (result.tableData) {
+                    // Map TableStructure to Scan's TableData format
+                    const td = result.tableData;
+                    newScan.tableData = {
+                        headers: td.headers.map((h, i) => ({
+                            id: `h${i + 1}`,
+                            value: h,
+                            confidence: 98,
+                        })),
+                        rows: Array.from({ length: td.rows - 1 }, (_, ri) => {
+                            return Array.from({ length: td.cols }, (_, ci) => {
+                                const cell = td.cells.find(c => c.row === ri + 1 && c.col === ci);
+                                return {
+                                    id: `r${ri + 1}c${ci + 1}`,
+                                    value: cell?.text || '',
+                                    confidence: cell ? Math.round(cell.confidence * 100) : 85,
+                                };
+                            });
+                        }),
                     };
                 } else {
-                    // Realistic mockup for table
+                    // Fallback: create basic table data
                     newScan.tableData = {
                         headers: [{ id: 'h1', value: 'ID', confidence: 99 }, { id: 'h2', value: 'Part', confidence: 98 }, { id: 'h3', value: 'Status', confidence: 95 }],
                         rows: [
@@ -151,10 +166,10 @@ const ProcessingScreen: React.FC = () => {
                     };
                 }
 
-                await new Promise<void>(r => setTimeout(() => r(), 1200));
+                await new Promise<void>(r => setTimeout(() => r(), 600));
                 if (!isMounted) return;
 
-                // Phase 5: Validating Data (600ms)
+                // Phase 5: Validating Data + Save to AsyncStorage
                 setProcessingPhase(PHASE_KEYS[4]);
                 setCurrentPhaseIndex(4);
                 Animated.timing(progressAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
