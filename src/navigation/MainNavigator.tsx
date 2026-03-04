@@ -28,7 +28,7 @@ import ModelStatusScreen from '../screens/ModelStatusScreen';
 export type HomeStackParamList = {
     [ROUTES.HOME]: undefined;
     [ROUTES.CAMERA]: undefined;
-    [ROUTES.PREVIEW_CROP]: { imageUri: string };
+    [ROUTES.PREVIEW_CROP]: { imageUri: string; docType?: string };
     [ROUTES.PROCESSING]: { imageUri: string; docType?: string };
     [ROUTES.TABLE_REVIEW]: { scanId: string };
     [ROUTES.PARAGRAPH_REVIEW]: { scanId: string };

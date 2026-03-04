@@ -1,0 +1,6 @@
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\react\renderer\components\rnasyncstorage\ComponentDescriptors.cpp.o
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\react\renderer\components\rnasyncstorage\EventEmitters.cpp.o
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\react\renderer\components\rnasyncstorage\Props.cpp.o
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\react\renderer\components\rnasyncstorage\ShadowNodes.cpp.o
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\react\renderer\components\rnasyncstorage\States.cpp.o
+D:\Projects\SCANKar\android\app\.cxx\Debug\1e69254g\x86\rnasyncstorage_autolinked_build\CMakeFiles\react_codegen_rnasyncstorage.dir\rnasyncstorage-generated.cpp.o

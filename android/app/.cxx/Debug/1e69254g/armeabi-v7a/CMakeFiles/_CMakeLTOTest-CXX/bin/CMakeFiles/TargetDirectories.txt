@@ -1,0 +1,4 @@
+D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
+D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir
+D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
+D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir
