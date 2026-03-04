@@ -2,16 +2,12 @@
 // Safe-area aware header bar used by all screens
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { APP_CONFIG } from '../../constants/config';
-
-// Get a reliable status bar height
-const STATUSBAR_HEIGHT = Platform.OS === 'android'
-    ? (StatusBar.currentHeight ?? 24)
-    : 44; // iOS fallback (safe area handled elsewhere on iOS)
 
 interface TopBarProps {
     title?: string;
@@ -29,16 +25,15 @@ const TopBar: React.FC<TopBarProps> = ({
     onLeftPress,
 }) => {
     const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
 
     return (
-        <View style={[styles.wrapper, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-            {/* Status bar spacer */}
-            <View style={styles.statusBarSpacer} />
+        <View style={[styles.wrapper, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: insets.top }]}>
             {/* Actual toolbar content */}
             <View style={styles.toolbar}>
                 <View style={styles.left}>
                     {leftIcon && (
-                        <TouchableOpacity onPress={onLeftPress} style={styles.iconButton}>
+                        <TouchableOpacity onPress={onLeftPress} style={styles.iconButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                             {leftIcon}
                         </TouchableOpacity>
                     )}
@@ -60,9 +55,6 @@ const TopBar: React.FC<TopBarProps> = ({
 const styles = StyleSheet.create({
     wrapper: {
         borderBottomWidth: 1,
-    },
-    statusBarSpacer: {
-        height: STATUSBAR_HEIGHT,
     },
     toolbar: {
         height: 56,

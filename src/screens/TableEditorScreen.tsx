@@ -125,6 +125,36 @@ const TableEditorScreen: React.FC = () => {
         }
     }, [numRows, selectedCell]);
 
+    const handleUndo = useCallback(() => {
+        const action = undo();
+        if (!action) return;
+        if (action.type === 'cell_edit' && action.previousState) {
+            const { row, col, text } = action.previousState as { row: number; col: number; text: string };
+            setGrid(prev => {
+                const g = prev.map(r => [...r]);
+                if (g[row] && g[row][col]) {
+                    g[row][col] = { text, confidence: 1, isEdited: false };
+                }
+                return g;
+            });
+        }
+    }, [undo]);
+
+    const handleRedo = useCallback(() => {
+        const action = redo();
+        if (!action) return;
+        if (action.type === 'cell_edit' && action.newState) {
+            const { row, col, text } = action.newState as { row: number; col: number; text: string };
+            setGrid(prev => {
+                const g = prev.map(r => [...r]);
+                if (g[row] && g[row][col]) {
+                    g[row][col] = { text, confidence: 1, isEdited: true };
+                }
+                return g;
+            });
+        }
+    }, [redo]);
+
     const handleDone = useCallback(() => {
         handleCellUpdate();
         navigation.goBack();
@@ -148,16 +178,18 @@ const TableEditorScreen: React.FC = () => {
             <View style={[styles.toolbar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                 <TouchableOpacity
                     style={[styles.toolBtn, !canUndo && styles.toolBtnDisabled]}
-                    onPress={() => undo()}
+                    onPress={handleUndo}
                     disabled={!canUndo}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                     <Text style={styles.toolIcon}>↩️</Text>
                     <Text style={[styles.toolLabel, { color: canUndo ? colors.text1 : colors.text2 }]}>Undo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.toolBtn, !canRedo && styles.toolBtnDisabled]}
-                    onPress={() => redo()}
+                    onPress={handleRedo}
                     disabled={!canRedo}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                     <Text style={styles.toolIcon}>↪️</Text>
                     <Text style={[styles.toolLabel, { color: canRedo ? colors.text1 : colors.text2 }]}>Redo</Text>
@@ -165,15 +197,15 @@ const TableEditorScreen: React.FC = () => {
 
                 <View style={[styles.toolDivider, { backgroundColor: colors.border }]} />
 
-                <TouchableOpacity style={styles.toolBtn} onPress={handleAddRow}>
+                <TouchableOpacity style={styles.toolBtn} onPress={handleAddRow} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.toolIcon}>➕</Text>
                     <Text style={[styles.toolLabel, { color: colors.text1 }]}>Row</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.toolBtn} onPress={handleAddCol}>
+                <TouchableOpacity style={styles.toolBtn} onPress={handleAddCol} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.toolIcon}>➕</Text>
                     <Text style={[styles.toolLabel, { color: colors.text1 }]}>Col</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.toolBtn} onPress={handleDeleteRow}>
+                <TouchableOpacity style={styles.toolBtn} onPress={handleDeleteRow} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Text style={styles.toolIcon}>🗑️</Text>
                     <Text style={[styles.toolLabel, { color: colors.error }]}>Del</Text>
                 </TouchableOpacity>
