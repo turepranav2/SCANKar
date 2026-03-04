@@ -1,13 +1,14 @@
 // SCANKar — Processing Screen (Screen 05)
-// Matches Stitch screen: Document Processing
+// Features: 5-phase animation, realistic mock data generation based on image size, AsyncStorage integration
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Animated,
     Easing,
+    Image,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,8 +18,9 @@ import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
 import { PROCESSING_PHASES } from '../constants/config';
 import { typography } from '../theme/typography';
-import { spacing, radius } from '../theme/spacing';
-import { ProcessingPhase } from '../models/Scan';
+import { spacing } from '../theme/spacing';
+import { DocumentType, Scan, ProcessingPhase } from '../models/Scan';
+import { saveScan } from '../services/storage/ScanStorage';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ProcessRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.PROCESSING>;
@@ -35,14 +37,16 @@ const ProcessingScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const route = useRoute<ProcessRouteProp>();
     const { colors } = useTheme();
-    const { setProcessingPhase, setCurrentScan } = useScan();
+    const { setProcessingPhase } = useScan();
 
     const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const spinAnim = useRef(new Animated.Value(0)).current;
     const progressAnim = useRef(new Animated.Value(0)).current;
 
-    // Pulsing icon animation
+    const imageUri = route.params?.imageUri || '';
+    const docTypePassed = route.params?.docType;
+
     useEffect(() => {
         const pulse = Animated.loop(
             Animated.sequence([
@@ -54,7 +58,6 @@ const ProcessingScreen: React.FC = () => {
         return () => pulse.stop();
     }, [pulseAnim]);
 
-    // Spinner animation
     useEffect(() => {
         const spin = Animated.loop(
             Animated.timing(spinAnim, { toValue: 1, duration: 1000, useNativeDriver: true, easing: Easing.linear })
@@ -68,48 +71,114 @@ const ProcessingScreen: React.FC = () => {
         outputRange: ['0deg', '360deg'],
     });
 
-    // Simulate processing phases
     useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentPhaseIndex(prev => {
-                const next = prev + 1;
-                if (next < PHASE_KEYS.length) {
-                    setProcessingPhase(PHASE_KEYS[next]);
-                    Animated.timing(progressAnim, {
-                        toValue: (next + 1) / PHASE_KEYS.length,
-                        duration: 400,
-                        useNativeDriver: false,
-                    }).start();
-                    return next;
+        let isMounted = true;
+
+        const processPipeline = async () => {
+            try {
+                // Phase 1: Enhancing (800ms)
+                setProcessingPhase(PHASE_KEYS[0]);
+                setCurrentPhaseIndex(0);
+                Animated.timing(progressAnim, { toValue: 1 / 5, duration: 800, useNativeDriver: false }).start();
+                await new Promise(r => setTimeout(r, 800));
+                if (!isMounted) return;
+
+                // Phase 2: Detecting Type (1000ms)
+                setProcessingPhase(PHASE_KEYS[1]);
+                setCurrentPhaseIndex(1);
+                Animated.timing(progressAnim, { toValue: 2 / 5, duration: 1000, useNativeDriver: false }).start();
+
+                let width = 1000, height = 1500;
+                if (imageUri) {
+                    try {
+                        await new Promise<void>((resolve) => {
+                            Image.getSize(imageUri, (w, h) => { width = w; height = h; resolve(); }, () => resolve());
+                        });
+                    } catch (e) { }
                 }
-                clearInterval(timer);
-                return prev;
-            });
-        }, 1200);
+                const detectedType: DocumentType =
+                    (docTypePassed && docTypePassed !== 'auto') ? (docTypePassed as DocumentType) : (width > height ? 'paragraph' : 'table');
 
-        // Start first phase
-        setProcessingPhase(PHASE_KEYS[0]);
-        Animated.timing(progressAnim, {
-            toValue: 1 / PHASE_KEYS.length,
-            duration: 400,
-            useNativeDriver: false,
-        }).start();
+                await new Promise(r => setTimeout(r, 1000));
+                if (!isMounted) return;
 
-        return () => clearInterval(timer);
-    }, [setProcessingPhase, progressAnim]);
+                // Phase 3: Extracting Structure (800ms)
+                setProcessingPhase(PHASE_KEYS[2]);
+                setCurrentPhaseIndex(2);
+                Animated.timing(progressAnim, { toValue: 3 / 5, duration: 800, useNativeDriver: false }).start();
+                await new Promise(r => setTimeout(r, 800));
+                if (!isMounted) return;
 
-    // Navigate after all phases complete
-    useEffect(() => {
-        if (currentPhaseIndex >= PHASE_KEYS.length - 1) {
-            const timeout = setTimeout(() => {
+                // Phase 4: Reading Text (1200ms)
+                setProcessingPhase(PHASE_KEYS[3]);
+                setCurrentPhaseIndex(3);
+                Animated.timing(progressAnim, { toValue: 4 / 5, duration: 1200, useNativeDriver: false }).start();
+
+                const newScan: Scan = {
+                    id: `scan-${Date.now()}`,
+                    name: `Scan ${new Date().toLocaleDateString()}`,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    originalImageUri: imageUri,
+                    enhancedImageUri: imageUri,
+                    thumbnailUri: imageUri,
+                    documentType: detectedType === 'form' ? 'table' : detectedType, // Map form to table logic for UI
+                    overallConfidence: Math.floor(Math.random() * (97 - 85 + 1)) + 85, // 85-97%
+                    processingTimeMs: 4400,
+                    modelsUsed: ['yolov8-doc', 'tesseract-v5'],
+                    languageDetected: 'English',
+                    isEdited: false,
+                    editHistory: [],
+                };
+
+                if (newScan.documentType === 'paragraph') {
+                    // Realistic mockup for paragraph
+                    newScan.paragraphData = {
+                        blocks: [
+                            { id: 'b1', text: 'INSPECTION REPORT\nDate: 2026-03-04\nLocation: Site Alpha', confidence: 96, boundingBox: { x: 10, y: 10, width: 800, height: 150 }, language: 'English' },
+                            { id: 'b2', text: 'All units verify standard pressure tolerances are met. Warning sequence bypassed on manual override. Review pending before system restart.', confidence: 89, boundingBox: { x: 10, y: 200, width: 800, height: 250 }, language: 'English' },
+                        ]
+                    };
+                } else {
+                    // Realistic mockup for table
+                    newScan.tableData = {
+                        headers: [{ id: 'h1', value: 'ID', confidence: 99 }, { id: 'h2', value: 'Part', confidence: 98 }, { id: 'h3', value: 'Status', confidence: 95 }],
+                        rows: [
+                            [{ id: 'r1c1', value: 'A1', confidence: 95 }, { id: 'r1c2', value: 'Exhaust Valve', confidence: 92 }, { id: 'r1c3', value: 'OK', confidence: 88 }],
+                            [{ id: 'r2c1', value: 'B2', confidence: 90 }, { id: 'r2c2', value: 'Pressure Gauge', confidence: 86 }, { id: 'r2c3', value: 'FAIL', confidence: 94 }],
+                            [{ id: 'r3c1', value: 'C3', confidence: 91 }, { id: 'r3c2', value: 'Coolant Hose', confidence: 97 }, { id: 'r3c3', value: 'WARN', confidence: 85 }],
+                        ]
+                    };
+                }
+
+                await new Promise(r => setTimeout(r, 1200));
+                if (!isMounted) return;
+
+                // Phase 5: Validating Data (600ms)
+                setProcessingPhase(PHASE_KEYS[4]);
+                setCurrentPhaseIndex(4);
+                Animated.timing(progressAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+
+                await saveScan(newScan);
+
+                await new Promise(r => setTimeout(r, 600));
+                if (!isMounted) return;
+
                 setProcessingPhase('idle');
-                // Placeholder: navigate to table review
-                // In production, routing depends on detected document type
-                navigation.replace(ROUTES.TABLE_REVIEW, { scanId: 'demo-scan-001' });
-            }, 1500);
-            return () => clearTimeout(timeout);
-        }
-    }, [currentPhaseIndex, navigation, setProcessingPhase]);
+                const nextRoute = newScan.documentType === 'paragraph' ? ROUTES.PARAGRAPH_REVIEW : ROUTES.TABLE_REVIEW;
+                navigation.replace(nextRoute, { scanId: newScan.id });
+
+            } catch (e) {
+                console.error("Pipeline Error", e);
+                setProcessingPhase('idle');
+                navigation.goBack();
+            }
+        };
+
+        processPipeline();
+
+        return () => { isMounted = false; };
+    }, [imageUri, docTypePassed, navigation, progressAnim, setProcessingPhase]);
 
     const progressWidth = progressAnim.interpolate({
         inputRange: [0, 1],
@@ -124,7 +193,6 @@ const ProcessingScreen: React.FC = () => {
                 <Animated.View style={[styles.glowRing, { borderColor: colors.primary, opacity: 0.3 }]} />
             </Animated.View>
 
-            {/* Title */}
             <Text style={[styles.title, { color: colors.text1 }]}>Processing Document...</Text>
 
             {/* Phase list */}
@@ -165,8 +233,7 @@ const ProcessingScreen: React.FC = () => {
                 <Animated.View style={[styles.progressFill, { backgroundColor: colors.primary, width: progressWidth }]} />
             </View>
 
-            {/* Estimate */}
-            <Text style={[styles.estimate, { color: colors.text2 }]}>Estimated time: ~3 seconds</Text>
+            <Text style={[styles.estimate, { color: colors.text2 }]}>Estimated time: ~4.4 seconds</Text>
         </View>
     );
 };
@@ -178,67 +245,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: spacing.xl,
     },
-
-    // Icon
-    iconContainer: {
-        width: 100,
-        height: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    iconContainer: { width: 100, height: 100, justifyContent: 'center', alignItems: 'center' },
     icon: { fontSize: 64 },
-    glowRing: {
-        position: 'absolute',
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 3,
-    },
-
-    // Title
-    title: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginTop: spacing.xl,
-        fontFamily: typography.h3.fontFamily,
-    },
-
-    // Phases
-    phaseList: {
-        width: 240,
-        marginTop: spacing.lg,
-        gap: spacing.base,
-    },
-    phaseRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
-    },
+    glowRing: { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 3 },
+    title: { fontSize: 18, fontWeight: '600', marginTop: spacing.xl, fontFamily: typography.h3.fontFamily },
+    phaseList: { width: 240, marginTop: spacing.lg, gap: spacing.base },
+    phaseRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     phaseIcon: { fontSize: 16, width: 20, textAlign: 'center' },
-    phaseLabel: {
-        fontSize: 15,
-        fontFamily: typography.body.fontFamily,
-    },
-
-    // Progress
-    progressTrack: {
-        width: 280,
-        height: 6,
-        borderRadius: 3,
-        marginTop: spacing.xl,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        borderRadius: 3,
-    },
-
-    // Estimate
-    estimate: {
-        fontSize: 12,
-        marginTop: spacing.md,
-        fontFamily: typography.caption.fontFamily,
-    },
+    phaseLabel: { fontSize: 15, fontFamily: typography.body.fontFamily },
+    progressTrack: { width: 280, height: 6, borderRadius: 3, marginTop: spacing.xl, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: 3 },
+    estimate: { fontSize: 12, marginTop: spacing.md, fontFamily: typography.caption.fontFamily },
 });
 
 export default ProcessingScreen;

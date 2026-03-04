@@ -1,74 +1,48 @@
 // SCANKar — Table Review Screen (Screen 06)
-// Split-panel: original image top + extracted table bottom
+// Fetches real scan from AsyncStorage and displays dynamic extractions
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
     ScrollView,
     TouchableOpacity,
     StyleSheet,
+    Image,
+    ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../context/ThemeContext';
-import { useScan } from '../context/ScanContext';
 import TopBar from '../components/common/TopBar';
 import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { getConfidenceColor, getConfidenceBgColor, formatConfidence } from '../utils/confidence';
-import { TableCell } from '../models/TableData';
+import { getScan } from '../services/storage/ScanStorage';
+import { Scan } from '../models/Scan';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ReviewRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.TABLE_REVIEW>;
-
-// Demo data for visual preview
-const DEMO_HEADERS = ['Sr', 'Item', 'Qty', 'Rate', 'Amount'];
-const DEMO_ROWS: { text: string; confidence: number }[][] = [
-    [
-        { text: '1', confidence: 0.98 },
-        { text: 'Cement OPC 53 Grade', confidence: 0.95 },
-        { text: '100', confidence: 0.97 },
-        { text: '380', confidence: 0.96 },
-        { text: '38,000', confidence: 0.94 },
-    ],
-    [
-        { text: '2', confidence: 0.99 },
-        { text: 'TMT Steel Bars 12mm', confidence: 0.88 },
-        { text: '50', confidence: 0.96 },
-        { text: '65,000', confidence: 0.72 },
-        { text: '32,50,000', confidence: 0.68 },
-    ],
-    [
-        { text: '3', confidence: 0.97 },
-        { text: 'River Sand (Fine)', confidence: 0.92 },
-        { text: '200', confidence: 0.95 },
-        { text: '1,200', confidence: 0.91 },
-        { text: '2,40,000', confidence: 0.93 },
-    ],
-    [
-        { text: '4', confidence: 0.98 },
-        { text: 'Aggregate 20mm', confidence: 0.85 },
-        { text: '150', confidence: 0.94 },
-        { text: '950', confidence: 0.82 },
-        { text: '1,42,500', confidence: 0.80 },
-    ],
-];
 
 const TableReviewScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const route = useRoute<ReviewRouteProp>();
     const { colors } = useTheme();
+
+    const [scan, setScan] = useState<Scan | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [showOriginal, setShowOriginal] = useState(true);
 
-    const overallConfidence = useMemo(() => {
-        let sum = 0;
-        let count = 0;
-        DEMO_ROWS.forEach(row => row.forEach(cell => { sum += cell.confidence; count++; }));
-        return sum / count;
-    }, []);
+    useEffect(() => {
+        const loadScan = async () => {
+            const data = await getScan(route.params.scanId);
+            setScan(data);
+            setIsLoading(false);
+        };
+        loadScan();
+    }, [route.params.scanId]);
 
     const handleEdit = useCallback(() => {
         navigation.navigate(ROUTES.TABLE_EDITOR, { scanId: route.params.scanId });
@@ -77,6 +51,26 @@ const TableReviewScreen: React.FC = () => {
     const handleExport = useCallback(() => {
         navigation.navigate(ROUTES.EXPORT, { scanId: route.params.scanId });
     }, [navigation, route.params.scanId]);
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!scan) {
+        return (
+            <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
+                <Text style={{ color: colors.error }}>Failed to load scan data.</Text>
+            </View>
+        );
+    }
+
+    const { tableData, originalImageUri, overallConfidence } = scan;
+    const headers = tableData?.headers || [];
+    const rows = tableData?.rows || [];
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -97,13 +91,21 @@ const TableReviewScreen: React.FC = () => {
                 {/* Original Image Toggle */}
                 {showOriginal && (
                     <View style={[styles.imageArea, { backgroundColor: colors.primarySubtle }]}>
-                        <Text style={styles.imageEmoji}>📄</Text>
-                        <Text style={[styles.imageLabel, { color: colors.text2 }]}>Original Document</Text>
+                        {originalImageUri ? (
+                            <Image source={{ uri: originalImageUri }} style={styles.realImage} resizeMode="contain" />
+                        ) : (
+                            <>
+                                <Text style={styles.imageEmoji}>📄</Text>
+                                <Text style={[styles.imageLabel, { color: colors.text2 }]}>No Image Available</Text>
+                            </>
+                        )}
                         <TouchableOpacity
                             style={styles.collapseBtn}
                             onPress={() => setShowOriginal(false)}
                         >
-                            <Text style={[styles.collapseText, { color: colors.primary }]}>▼ Hide</Text>
+                            <View style={styles.collapseBg}>
+                                <Text style={[styles.collapseText, { color: '#000' }]}>▼ Hide</Text>
+                            </View>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -112,7 +114,7 @@ const TableReviewScreen: React.FC = () => {
                         style={[styles.expandBar, { backgroundColor: colors.primarySubtle }]}
                         onPress={() => setShowOriginal(true)}
                     >
-                        <Text style={[styles.expandText, { color: colors.primary }]}>▶ Show Original</Text>
+                        <Text style={[styles.expandText, { color: colors.primary }]}>▶ Show Original Document</Text>
                     </TouchableOpacity>
                 )}
 
@@ -120,16 +122,16 @@ const TableReviewScreen: React.FC = () => {
                 <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.summaryRow}>
                         <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Overall Confidence</Text>
-                        <View style={[styles.confBadge, { backgroundColor: getConfidenceBgColor(overallConfidence, colors) }]}>
-                            <Text style={[styles.confBadgeText, { color: getConfidenceColor(overallConfidence, colors) }]}>
-                                {formatConfidence(overallConfidence)}
+                        <View style={[styles.confBadge, { backgroundColor: getConfidenceBgColor(overallConfidence / 100, colors) }]}>
+                            <Text style={[styles.confBadgeText, { color: getConfidenceColor(overallConfidence / 100, colors) }]}>
+                                {formatConfidence(overallConfidence / 100)}
                             </Text>
                         </View>
                     </View>
                     <View style={styles.summaryRow}>
                         <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Detected</Text>
                         <Text style={[styles.summaryValue, { color: colors.text1 }]}>
-                            {DEMO_ROWS.length} rows × {DEMO_HEADERS.length} columns
+                            {rows.length} rows × {headers.length} columns
                         </Text>
                     </View>
                 </View>
@@ -140,39 +142,43 @@ const TableReviewScreen: React.FC = () => {
                         <View>
                             {/* Header row */}
                             <View style={styles.tableHeaderRow}>
-                                {DEMO_HEADERS.map((header, index) => (
+                                {headers.map((header, index) => (
                                     <View
-                                        key={index}
+                                        key={header.id || index}
                                         style={[
                                             styles.tableHeaderCell,
                                             { backgroundColor: colors.primarySubtle, borderColor: colors.border },
                                             index === 1 && { width: 160 },
                                         ]}
                                     >
-                                        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>{header}</Text>
+                                        <Text style={[styles.tableHeaderText, { color: colors.primary }]}>{header.value}</Text>
                                     </View>
                                 ))}
                             </View>
 
                             {/* Data rows */}
-                            {DEMO_ROWS.map((row, rowIdx) => (
+                            {rows.map((row, rowIdx) => (
                                 <View key={rowIdx} style={styles.tableDataRow}>
                                     {row.map((cell, cellIdx) => {
-                                        const confColor = getConfidenceColor(cell.confidence, colors);
+                                        // Confidence is stored 0-100 in our mock, 0-1 depending on structure.
+                                        // formatConfidence expects 0-1, getConfidenceColor expects 0-1.
+                                        const cVal = cell.confidence && cell.confidence > 1 ? cell.confidence / 100 : (cell.confidence || 1);
+                                        const confColor = getConfidenceColor(cVal, colors);
+
                                         return (
                                             <View
-                                                key={cellIdx}
+                                                key={cell.id || cellIdx}
                                                 style={[
                                                     styles.tableDataCell,
                                                     { borderColor: colors.border },
                                                     cellIdx === 1 && { width: 160 },
-                                                    cell.confidence < 0.8 && { backgroundColor: getConfidenceBgColor(cell.confidence, colors) },
+                                                    cVal < 0.8 && { backgroundColor: getConfidenceBgColor(cVal, colors) },
                                                 ]}
                                             >
-                                                <Text style={[styles.tableCellText, { color: colors.text1 }]}>{cell.text}</Text>
-                                                {cell.confidence < 0.9 && (
+                                                <Text style={[styles.tableCellText, { color: colors.text1 }]}>{cell.value}</Text>
+                                                {cVal < 0.9 && (
                                                     <Text style={[styles.confDot, { color: confColor }]}>
-                                                        {formatConfidence(cell.confidence)}
+                                                        {formatConfidence(cVal)}
                                                     </Text>
                                                 )}
                                             </View>
@@ -216,6 +222,7 @@ const TableReviewScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    loadingCenter: { justifyContent: 'center', alignItems: 'center' },
     scroll: { flex: 1 },
     headerRight: { flexDirection: 'row', gap: spacing.base },
 
@@ -227,11 +234,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        overflow: 'hidden',
     },
+    realImage: { width: '100%', height: '100%' },
     imageEmoji: { fontSize: 48 },
     imageLabel: { fontSize: 12, marginTop: spacing.xs, fontFamily: typography.caption.fontFamily },
     collapseBtn: { position: 'absolute', bottom: 8, right: 12 },
-    collapseText: { fontSize: 12, fontFamily: typography.caption.fontFamily },
+    collapseBg: { backgroundColor: 'rgba(255,255,255,0.8)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    collapseText: { fontSize: 12, fontWeight: '600', fontFamily: typography.caption.fontFamily },
     expandBar: {
         margin: spacing.base,
         padding: spacing.md,
@@ -262,11 +272,12 @@ const styles = StyleSheet.create({
         borderRadius: radius.card,
         borderWidth: 1,
         overflow: 'hidden',
+        minHeight: 100, // min height if no rows
         ...shadows.sm,
     },
     tableHeaderRow: { flexDirection: 'row' },
     tableHeaderCell: {
-        width: 90,
+        width: 100, // Adjusted width
         height: 44,
         justifyContent: 'center',
         alignItems: 'center',
@@ -275,7 +286,7 @@ const styles = StyleSheet.create({
     tableHeaderText: { fontSize: 12, fontWeight: '700', fontFamily: typography.caption.fontFamily },
     tableDataRow: { flexDirection: 'row' },
     tableDataCell: {
-        width: 90,
+        width: 100, // Adjusted width
         minHeight: 44,
         justifyContent: 'center',
         alignItems: 'center',
@@ -284,7 +295,7 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     tableCellText: { fontSize: 13, textAlign: 'center', fontFamily: typography.body.fontFamily },
-    confDot: { fontSize: 9, marginTop: 2, fontFamily: typography.caption.fontFamily },
+    confDot: { fontSize: 10, marginTop: 2, fontWeight: '600', fontFamily: typography.caption.fontFamily },
 
     // Legend
     legend: {

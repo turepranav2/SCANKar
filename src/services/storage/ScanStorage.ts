@@ -1,57 +1,96 @@
-// SCANKar — Scan Storage Service (Placeholder for MMKV)
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Scan } from '../../models/Scan';
 
-import { Scan, ScanIndexEntry } from '../../models/Scan';
+const SCAN_KEY_PREFIX = 'scankar_scan_';
+const INDEX_KEY = 'scankar_scan_index';
 
-// In production, this uses MMKV for high-performance storage
-// Placeholder implementation using in-memory store
+export const saveScan = async (scan: Scan): Promise<void> => {
+    try {
+        await AsyncStorage.setItem(`${SCAN_KEY_PREFIX}${scan.id}`, JSON.stringify(scan));
 
-let scanIndex: ScanIndexEntry[] = [];
-let scans: Map<string, Scan> = new Map();
+        let index: string[] = [];
+        const indexStr = await AsyncStorage.getItem(INDEX_KEY);
+        if (indexStr) {
+            index = JSON.parse(indexStr);
+        }
 
-export async function getScanIndex(): Promise<ScanIndexEntry[]> {
-    return [...scanIndex];
-}
-
-export async function getScan(id: string): Promise<Scan | null> {
-    return scans.get(id) || null;
-}
-
-export async function saveScan(scan: Scan): Promise<void> {
-    scans.set(scan.id, scan);
-
-    // Update index
-    const existing = scanIndex.findIndex(e => e.id === scan.id);
-    const entry: ScanIndexEntry = {
-        id: scan.id,
-        name: scan.name,
-        documentType: scan.documentType,
-        overallConfidence: scan.overallConfidence,
-        createdAt: scan.createdAt,
-        thumbnailUri: scan.thumbnailUri,
-    };
-
-    if (existing >= 0) {
-        scanIndex[existing] = entry;
-    } else {
-        scanIndex.unshift(entry);
+        if (!index.includes(scan.id)) {
+            index.push(scan.id);
+            await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(index));
+        }
+    } catch (e) {
+        console.error('Failed to save scan', e);
     }
-}
+};
 
-export async function deleteScan(id: string): Promise<void> {
-    scans.delete(id);
-    scanIndex = scanIndex.filter(e => e.id !== id);
-}
+export const getScan = async (scanId: string): Promise<Scan | null> => {
+    try {
+        const str = await AsyncStorage.getItem(`${SCAN_KEY_PREFIX}${scanId}`);
+        return str ? JSON.parse(str) : null;
+    } catch (e) {
+        console.error('Failed to get scan', e);
+        return null;
+    }
+};
 
-export async function clearAllScans(): Promise<void> {
-    scans.clear();
-    scanIndex = [];
-}
+export const getAllScans = async (): Promise<Scan[]> => {
+    try {
+        const indexStr = await AsyncStorage.getItem(INDEX_KEY);
+        if (!indexStr) return [];
+        const index: string[] = JSON.parse(indexStr);
 
-export async function getRecentScans(limit: number = 5): Promise<ScanIndexEntry[]> {
-    return scanIndex.slice(0, limit);
-}
+        const scans: Scan[] = [];
+        for (const id of index) {
+            const scan = await getScan(id);
+            if (scan) {
+                scans.push(scan);
+            }
+        }
 
-export async function searchScans(query: string): Promise<ScanIndexEntry[]> {
-    const lower = query.toLowerCase();
-    return scanIndex.filter(e => e.name.toLowerCase().includes(lower));
-}
+        // Return newest first
+        return scans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (e) {
+        console.error('Failed to get all scans', e);
+        return [];
+    }
+};
+
+export const deleteScan = async (scanId: string): Promise<void> => {
+    try {
+        await AsyncStorage.removeItem(`${SCAN_KEY_PREFIX}${scanId}`);
+
+        const indexStr = await AsyncStorage.getItem(INDEX_KEY);
+        if (indexStr) {
+            let index: string[] = JSON.parse(indexStr);
+            index = index.filter(id => id !== scanId);
+            await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(index));
+        }
+    } catch (e) {
+        console.error('Failed to delete scan', e);
+    }
+};
+
+export const getRecentScans = async (limit: number): Promise<Scan[]> => {
+    const all = await getAllScans();
+    return all.slice(0, limit);
+};
+
+export const getScanStats = async (): Promise<{ total: number; thisWeek: number; exports: number }> => {
+    try {
+        const all = await getAllScans();
+
+        const now = new Date();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+
+        const thisWeek = all.filter(s => new Date(s.createdAt) >= startOfWeek).length;
+
+        let exports = 0;
+        const eStr = await AsyncStorage.getItem('scankar_exports_count');
+        if (eStr) exports = parseInt(eStr, 10);
+
+        return { total: all.length, thisWeek, exports };
+    } catch (e) {
+        console.error('Failed to get stats', e);
+        return { total: 0, thisWeek: 0, exports: 0 };
+    }
+};

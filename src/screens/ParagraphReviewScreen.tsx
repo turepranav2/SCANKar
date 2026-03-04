@@ -1,7 +1,7 @@
 // SCANKar — Paragraph Review Screen (Screen 07)
-// Shows extracted text with confidence highlighting and inline editing
+// Fetches real scan from AsyncStorage and displays dynamic extractions with inline editing
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,8 @@ import {
     TouchableOpacity,
     TextInput,
     StyleSheet,
-    Animated,
+    Image,
+    ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,64 +21,13 @@ import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
-import { getConfidenceColor, getConfidenceBgColor, formatConfidence, getConfidenceLevel } from '../utils/confidence';
+import { getConfidenceColor, getConfidenceBgColor, formatConfidence } from '../utils/confidence';
 import { generateId } from '../utils/formatters';
+import { getScan, saveScan } from '../services/storage/ScanStorage';
+import { Scan } from '../models/Scan';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ReviewRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.PARAGRAPH_REVIEW>;
-
-// Demo text blocks to visualize
-interface DemoBlock {
-    id: string;
-    type: 'heading' | 'body';
-    text: string;
-    confidence: number;
-    language: string;
-    isHandwritten: boolean;
-}
-
-const DEMO_BLOCKS: DemoBlock[] = [
-    {
-        id: '1',
-        type: 'heading',
-        text: 'MATERIAL REQUISITION FORM',
-        confidence: 0.97,
-        language: 'English',
-        isHandwritten: false,
-    },
-    {
-        id: '2',
-        type: 'body',
-        text: 'Project: Endurance Building Phase-II\nDate: 15/01/2026\nReq. No: MRF-2026-0142',
-        confidence: 0.93,
-        language: 'English',
-        isHandwritten: false,
-    },
-    {
-        id: '3',
-        type: 'body',
-        text: 'Please procure the following materials for foundation work at Block-C. All items must conform to IS standards as specified in the approved drawings.',
-        confidence: 0.89,
-        language: 'English',
-        isHandwritten: false,
-    },
-    {
-        id: '4',
-        type: 'body',
-        text: 'अनुमोदित: श्री राजेश कुमार\nपद: साइट इंजीनियर\nदिनांक: 15/01/2026',
-        confidence: 0.72,
-        language: 'Hindi',
-        isHandwritten: true,
-    },
-    {
-        id: '5',
-        type: 'body',
-        text: 'Note: Delivery required before 20th January. Contact stores manager for receiving schedule.',
-        confidence: 0.95,
-        language: 'English',
-        isHandwritten: false,
-    },
-];
 
 const ParagraphReviewScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
@@ -85,26 +35,53 @@ const ParagraphReviewScreen: React.FC = () => {
     const { colors } = useTheme();
     const { pushEdit, canUndo, undo } = useScan();
 
-    const [blocks, setBlocks] = useState(DEMO_BLOCKS);
+    const [scan, setScan] = useState<Scan | null>(null);
+    const [blocks, setBlocks] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
     const [showOriginal, setShowOriginal] = useState(true);
 
-    const overallConfidence = blocks.reduce((sum, b) => sum + b.confidence, 0) / blocks.length;
+    useEffect(() => {
+        const loadScan = async () => {
+            const data = await getScan(route.params.scanId);
+            if (data) {
+                setScan(data);
+                if (data.paragraphData?.blocks) {
+                    setBlocks(data.paragraphData.blocks);
+                }
+            }
+            setIsLoading(false);
+        };
+        loadScan();
+    }, [route.params.scanId]);
 
-    const handleBlockPress = useCallback((block: DemoBlock) => {
+    const overallConfidence = blocks.length > 0
+        ? blocks.reduce((sum, b) => sum + b.confidence, 0) / blocks.length
+        : 0;
+
+    const handleBlockPress = useCallback((block: any) => {
         setEditingBlockId(block.id);
         setEditText(block.text);
     }, []);
 
-    const handleSaveEdit = useCallback(() => {
-        if (!editingBlockId) return;
+    const handleSaveEdit = useCallback(async () => {
+        if (!editingBlockId || !scan) return;
         const block = blocks.find(b => b.id === editingBlockId);
         if (!block || block.text === editText) {
             setEditingBlockId(null);
             return;
         }
 
+        const newBlocks = blocks.map(b =>
+            b.id === editingBlockId ? { ...b, text: editText, confidence: 100 } : b
+        );
+
+        setBlocks(newBlocks);
+        setEditingBlockId(null);
+
+        // Track history context
         pushEdit({
             id: generateId(),
             type: 'cell_edit',
@@ -113,13 +90,15 @@ const ParagraphReviewScreen: React.FC = () => {
             newState: { blockId: editingBlockId, text: editText },
         });
 
-        setBlocks(prev =>
-            prev.map(b =>
-                b.id === editingBlockId ? { ...b, text: editText, confidence: 1 } : b
-            )
-        );
-        setEditingBlockId(null);
-    }, [editingBlockId, editText, blocks, pushEdit]);
+        // Save to DB
+        const updatedScan: Scan = { ...scan };
+        if (updatedScan.paragraphData) {
+            updatedScan.paragraphData.blocks = newBlocks;
+            updatedScan.isEdited = true;
+            await saveScan(updatedScan);
+            setScan(updatedScan);
+        }
+    }, [editingBlockId, editText, blocks, pushEdit, scan]);
 
     const handleCancelEdit = useCallback(() => {
         setEditingBlockId(null);
@@ -128,6 +107,22 @@ const ParagraphReviewScreen: React.FC = () => {
     const handleExport = useCallback(() => {
         navigation.navigate(ROUTES.EXPORT, { scanId: route.params.scanId });
     }, [navigation, route.params.scanId]);
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (!scan) {
+        return (
+            <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
+                <Text style={{ color: colors.error }}>Failed to load scan data.</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -148,10 +143,18 @@ const ParagraphReviewScreen: React.FC = () => {
                 {/* Original Image (collapsible) */}
                 {showOriginal && (
                     <View style={[styles.imageArea, { backgroundColor: colors.primarySubtle }]}>
-                        <Text style={styles.imageEmoji}>📄</Text>
-                        <Text style={[styles.imageLabel, { color: colors.text2 }]}>Original Document</Text>
+                        {scan.originalImageUri ? (
+                            <Image source={{ uri: scan.originalImageUri }} style={styles.realImage} resizeMode="contain" />
+                        ) : (
+                            <>
+                                <Text style={styles.imageEmoji}>📄</Text>
+                                <Text style={[styles.imageLabel, { color: colors.text2 }]}>No Image</Text>
+                            </>
+                        )}
                         <TouchableOpacity style={styles.collapseBtn} onPress={() => setShowOriginal(false)}>
-                            <Text style={[styles.collapseText, { color: colors.primary }]}>▼ Hide</Text>
+                            <View style={styles.collapseBg}>
+                                <Text style={[styles.collapseText, { color: '#000' }]}>▼ Hide</Text>
+                            </View>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -168,9 +171,9 @@ const ParagraphReviewScreen: React.FC = () => {
                 <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.summaryRow}>
                         <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Overall Confidence</Text>
-                        <View style={[styles.confBadge, { backgroundColor: getConfidenceBgColor(overallConfidence, colors) }]}>
-                            <Text style={[styles.confBadgeText, { color: getConfidenceColor(overallConfidence, colors) }]}>
-                                {formatConfidence(overallConfidence)}
+                        <View style={[styles.confBadge, { backgroundColor: getConfidenceBgColor(overallConfidence / 100, colors) }]}>
+                            <Text style={[styles.confBadgeText, { color: getConfidenceColor(overallConfidence / 100, colors) }]}>
+                                {formatConfidence(overallConfidence / 100)}
                             </Text>
                         </View>
                     </View>
@@ -179,16 +182,17 @@ const ParagraphReviewScreen: React.FC = () => {
                         <Text style={[styles.summaryValue, { color: colors.text1 }]}>{blocks.length} text blocks</Text>
                     </View>
                     <View style={styles.summaryRow}>
-                        <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Languages</Text>
-                        <Text style={[styles.summaryValue, { color: colors.text1 }]}>English, Hindi</Text>
+                        <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Language</Text>
+                        <Text style={[styles.summaryValue, { color: colors.text1 }]}>{scan.languageDetected || 'Unknown'}</Text>
                     </View>
                 </View>
 
                 {/* Text Blocks */}
                 <View style={styles.blocksContainer}>
                     {blocks.map((block) => {
-                        const confColor = getConfidenceColor(block.confidence, colors);
-                        const confBgColor = getConfidenceBgColor(block.confidence, colors);
+                        const cVal = block.confidence > 1 ? block.confidence / 100 : block.confidence;
+                        const confColor = getConfidenceColor(cVal, colors);
+                        const confBgColor = getConfidenceBgColor(cVal, colors);
                         const isEditing = editingBlockId === block.id;
 
                         return (
@@ -209,18 +213,13 @@ const ParagraphReviewScreen: React.FC = () => {
                                     {/* Block header */}
                                     <View style={styles.blockHeader}>
                                         <View style={styles.blockMeta}>
-                                            {block.isHandwritten && (
-                                                <View style={[styles.tag, { backgroundColor: colors.warningBg }]}>
-                                                    <Text style={[styles.tagText, { color: colors.warning }]}>✍️ Handwritten</Text>
-                                                </View>
-                                            )}
                                             <View style={[styles.tag, { backgroundColor: colors.primarySubtle }]}>
-                                                <Text style={[styles.tagText, { color: colors.primary }]}>{block.language}</Text>
+                                                <Text style={[styles.tagText, { color: colors.primary }]}>{block.language || 'English'}</Text>
                                             </View>
                                         </View>
                                         <View style={[styles.confPill, { backgroundColor: confBgColor }]}>
                                             <Text style={[styles.confPillText, { color: confColor }]}>
-                                                {formatConfidence(block.confidence)}
+                                                {formatConfidence(cVal)}
                                             </Text>
                                         </View>
                                     </View>
@@ -239,7 +238,7 @@ const ParagraphReviewScreen: React.FC = () => {
                                             style={[
                                                 block.type === 'heading' ? styles.headingText : styles.bodyText,
                                                 { color: colors.text1 },
-                                                block.confidence < 0.8 && {
+                                                cVal < 0.8 && {
                                                     backgroundColor: confBgColor,
                                                     paddingHorizontal: 4,
                                                     borderRadius: 4,
@@ -269,7 +268,7 @@ const ParagraphReviewScreen: React.FC = () => {
                                     )}
 
                                     {/* Tap hint */}
-                                    {!isEditing && block.confidence < 0.9 && (
+                                    {!isEditing && cVal < 0.9 && (
                                         <Text style={[styles.tapHint, { color: colors.text2 }]}>Tap to edit</Text>
                                     )}
                                 </TouchableOpacity>
@@ -285,7 +284,7 @@ const ParagraphReviewScreen: React.FC = () => {
                     style={[styles.copyBtn, { borderColor: colors.primary }]}
                     onPress={() => {
                         const allText = blocks.map(b => b.text).join('\n\n');
-                        // Clipboard.setString(allText); — placeholder
+                        // Clipboard placeholder
                     }}
                 >
                     <Text style={[styles.copyBtnText, { color: colors.primary }]}>📋 Copy All</Text>
@@ -301,6 +300,7 @@ const ParagraphReviewScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     scroll: { flex: 1 },
+    loadingCenter: { justifyContent: 'center', alignItems: 'center' },
 
     // Image area
     imageArea: {
@@ -310,11 +310,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+        overflow: 'hidden',
     },
+    realImage: { width: '100%', height: '100%' },
     imageEmoji: { fontSize: 48 },
     imageLabel: { fontSize: 12, marginTop: spacing.xs, fontFamily: typography.caption.fontFamily },
     collapseBtn: { position: 'absolute', bottom: 8, right: 12 },
-    collapseText: { fontSize: 12, fontFamily: typography.caption.fontFamily },
+    collapseBg: { backgroundColor: 'rgba(255,255,255,0.8)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    collapseText: { fontSize: 12, fontWeight: '600', fontFamily: typography.caption.fontFamily },
     expandBar: {
         margin: spacing.base,
         padding: spacing.md,
@@ -340,101 +343,33 @@ const styles = StyleSheet.create({
     confBadgeText: { fontSize: 12, fontWeight: '700', fontFamily: typography.caption.fontFamily },
 
     // Text blocks
-    blocksContainer: {
-        paddingHorizontal: spacing.base,
-        gap: spacing.md,
-        paddingBottom: spacing.xl,
-    },
-    blockCard: {
-        borderRadius: radius.card,
-        padding: spacing.base,
-        ...shadows.sm,
-    },
-    blockHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
-    },
+    blocksContainer: { paddingHorizontal: spacing.base, gap: spacing.md, paddingBottom: spacing.xl },
+    blockCard: { borderRadius: radius.card, padding: spacing.base, ...shadows.sm },
+    blockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
     blockMeta: { flexDirection: 'row', gap: spacing.xs },
     tag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
     tagText: { fontSize: 10, fontWeight: '600', fontFamily: typography.caption.fontFamily },
     confPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
     confPillText: { fontSize: 11, fontWeight: '700', fontFamily: typography.caption.fontFamily },
 
-    headingText: {
-        fontSize: 16,
-        fontWeight: '700',
-        lineHeight: 24,
-        fontFamily: typography.h4.fontFamily,
-    },
-    bodyText: {
-        fontSize: 15,
-        lineHeight: 22,
-        fontFamily: typography.body.fontFamily,
-    },
+    headingText: { fontSize: 16, fontWeight: '700', lineHeight: 24, fontFamily: typography.h4.fontFamily },
+    bodyText: { fontSize: 15, lineHeight: 22, fontFamily: typography.body.fontFamily },
 
-    tapHint: {
-        fontSize: 11,
-        marginTop: spacing.sm,
-        fontStyle: 'italic',
-        fontFamily: typography.caption.fontFamily,
-    },
+    tapHint: { fontSize: 11, marginTop: spacing.sm, fontStyle: 'italic', fontFamily: typography.caption.fontFamily },
 
     // Edit controls
-    editInput: {
-        borderWidth: 1.5,
-        borderRadius: radius.input,
-        padding: spacing.md,
-        fontSize: 15,
-        lineHeight: 22,
-        minHeight: 80,
-        textAlignVertical: 'top',
-        fontFamily: typography.body.fontFamily,
-    },
-    editActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: spacing.sm,
-        marginTop: spacing.md,
-    },
-    cancelBtn: {
-        paddingHorizontal: spacing.base,
-        paddingVertical: spacing.sm,
-        borderWidth: 1,
-        borderRadius: radius.button,
-    },
+    editInput: { borderWidth: 1.5, borderRadius: radius.input, padding: spacing.md, fontSize: 15, lineHeight: 22, minHeight: 80, textAlignVertical: 'top', fontFamily: typography.body.fontFamily },
+    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.md },
+    cancelBtn: { paddingHorizontal: spacing.base, paddingVertical: spacing.sm, borderWidth: 1, borderRadius: radius.button },
     cancelBtnText: { fontSize: 13, fontWeight: '600', fontFamily: typography.button.fontFamily },
-    saveBtn: {
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
-        borderRadius: radius.button,
-    },
+    saveBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.button },
     saveBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', fontFamily: typography.button.fontFamily },
 
     // Action bar
-    actionBar: {
-        flexDirection: 'row',
-        padding: spacing.base,
-        gap: spacing.md,
-        borderTopWidth: 1,
-    },
-    copyBtn: {
-        flex: 2,
-        height: 48,
-        borderWidth: 1.5,
-        borderRadius: radius.button,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    actionBar: { flexDirection: 'row', padding: spacing.base, gap: spacing.md, borderTopWidth: 1 },
+    copyBtn: { flex: 2, height: 48, borderWidth: 1.5, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
     copyBtnText: { fontSize: 15, fontWeight: '600', fontFamily: typography.button.fontFamily },
-    exportBtn: {
-        flex: 3,
-        height: 52,
-        borderRadius: radius.button,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    exportBtn: { flex: 3, height: 52, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
     exportBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: typography.button.fontFamily },
 });
 

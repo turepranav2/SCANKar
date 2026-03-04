@@ -1,7 +1,7 @@
 // SCANKar — History / Saved Scans Screen (Screen 10)
-// Search, filter, sort, and scan list
+// Search, filter, sort, and real scan list from AsyncStorage
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,8 @@ import {
     TouchableOpacity,
     StyleSheet,
     Alert,
+    Image,
+    ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,68 +19,16 @@ import { useTheme } from '../context/ThemeContext';
 import TopBar from '../components/common/TopBar';
 import { ROUTES } from '../navigation/routes';
 import { HistoryStackParamList } from '../navigation/MainNavigator';
-import { ScanIndexEntry, DocumentType } from '../models/Scan';
+import { Scan, DocumentType } from '../models/Scan';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { formatDate } from '../utils/formatters';
 import { getConfidenceColor, getConfidenceBgColor, formatConfidence } from '../utils/confidence';
+import { getAllScans, deleteScan } from '../services/storage/ScanStorage';
 
 type NavProp = NativeStackNavigationProp<HistoryStackParamList>;
-
 type SortKey = 'newest' | 'oldest' | 'confidence';
 type FilterType = 'all' | DocumentType;
-
-// Demo scan history
-const DEMO_SCANS: ScanIndexEntry[] = [
-    {
-        id: 'scan-001',
-        name: 'Material_Requisition_20260115',
-        documentType: 'table',
-        overallConfidence: 0.92,
-        createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-    {
-        id: 'scan-002',
-        name: 'Site_Inspection_Note',
-        documentType: 'paragraph',
-        overallConfidence: 0.87,
-        createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-    {
-        id: 'scan-003',
-        name: 'BOQ_Foundation_Block_C',
-        documentType: 'table',
-        overallConfidence: 0.95,
-        createdAt: new Date(Date.now() - 48 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-    {
-        id: 'scan-004',
-        name: 'Safety_Checklist_Form',
-        documentType: 'form',
-        overallConfidence: 0.78,
-        createdAt: new Date(Date.now() - 72 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-    {
-        id: 'scan-005',
-        name: 'Concrete_Mix_Design',
-        documentType: 'mixed',
-        overallConfidence: 0.83,
-        createdAt: new Date(Date.now() - 120 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-    {
-        id: 'scan-006',
-        name: 'Daily_Progress_Report',
-        documentType: 'paragraph',
-        overallConfidence: 0.91,
-        createdAt: new Date(Date.now() - 168 * 3600000).toISOString(),
-        thumbnailUri: '',
-    },
-];
 
 const DOC_TYPE_ICONS: Record<string, string> = {
     table: '📊',
@@ -99,12 +49,26 @@ const HistoryScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const { colors } = useTheme();
 
+    const [scans, setScans] = useState<Scan[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [sortKey, setSortKey] = useState<SortKey>('newest');
 
+    // Load scans on focus
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', async () => {
+            setIsLoading(true);
+            const loadedScans = await getAllScans();
+            setScans(loadedScans);
+            setIsLoading(false);
+        });
+        return unsubscribe;
+    }, [navigation]);
+
     const filteredScans = useMemo(() => {
-        let list = [...DEMO_SCANS];
+        let list = [...scans];
 
         // Search
         if (searchQuery.trim()) {
@@ -131,23 +95,30 @@ const HistoryScreen: React.FC = () => {
         }
 
         return list;
-    }, [searchQuery, activeFilter, sortKey]);
+    }, [scans, searchQuery, activeFilter, sortKey]);
 
-    const handleScanPress = useCallback((scan: ScanIndexEntry) => {
-        if (scan.documentType === 'table') {
-            navigation.navigate(ROUTES.TABLE_REVIEW, { scanId: scan.id });
-        } else {
+    const handleScanPress = useCallback((scan: Scan) => {
+        if (scan.documentType === 'paragraph') {
             navigation.navigate(ROUTES.PARAGRAPH_REVIEW, { scanId: scan.id });
+        } else {
+            navigation.navigate(ROUTES.TABLE_REVIEW, { scanId: scan.id });
         }
     }, [navigation]);
 
-    const handleDeleteScan = useCallback((scan: ScanIndexEntry) => {
+    const handleDeleteScan = useCallback((scan: Scan) => {
         Alert.alert(
             'Delete Scan',
             `Delete "${scan.name}"? This cannot be undone.`,
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => { } },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await deleteScan(scan.id);
+                        setScans(prev => prev.filter(s => s.id !== scan.id));
+                    }
+                },
             ]
         );
     }, []);
@@ -160,9 +131,10 @@ const HistoryScreen: React.FC = () => {
         });
     }, []);
 
-    const renderScanItem = useCallback(({ item }: { item: ScanIndexEntry }) => {
-        const confColor = getConfidenceColor(item.overallConfidence, colors);
-        const confBg = getConfidenceBgColor(item.overallConfidence, colors);
+    const renderScanItem = useCallback(({ item }: { item: Scan }) => {
+        const cVal = item.overallConfidence > 1 ? item.overallConfidence / 100 : item.overallConfidence;
+        const confColor = getConfidenceColor(cVal, colors);
+        const confBg = getConfidenceBgColor(cVal, colors);
         const icon = DOC_TYPE_ICONS[item.documentType] || '📄';
 
         return (
@@ -174,7 +146,11 @@ const HistoryScreen: React.FC = () => {
             >
                 {/* Thumbnail */}
                 <View style={[styles.thumbArea, { backgroundColor: colors.primarySubtle }]}>
-                    <Text style={styles.thumbIcon}>{icon}</Text>
+                    {item.thumbnailUri ? (
+                        <Image source={{ uri: item.thumbnailUri }} style={styles.realThumb} resizeMode="cover" />
+                    ) : (
+                        <Text style={styles.thumbIcon}>{icon}</Text>
+                    )}
                 </View>
 
                 {/* Info */}
@@ -190,7 +166,7 @@ const HistoryScreen: React.FC = () => {
                         </View>
                         <View style={[styles.confPill, { backgroundColor: confBg }]}>
                             <Text style={[styles.confPillText, { color: confColor }]}>
-                                {formatConfidence(item.overallConfidence)}
+                                {formatConfidence(cVal)}
                             </Text>
                         </View>
                     </View>
@@ -202,6 +178,14 @@ const HistoryScreen: React.FC = () => {
             </TouchableOpacity>
         );
     }, [colors, handleScanPress, handleDeleteScan]);
+
+    if (isLoading && scans.length === 0) {
+        return (
+            <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -279,7 +263,7 @@ const HistoryScreen: React.FC = () => {
                     <Text style={styles.emptyIcon}>📋</Text>
                     <Text style={[styles.emptyTitle, { color: colors.text1 }]}>No scans found</Text>
                     <Text style={[styles.emptySubtitle, { color: colors.text2 }]}>
-                        {searchQuery ? 'Try a different search term' : 'Start scanning to see your history'}
+                        {scans.length === 0 ? 'Start scanning to see your history' : 'Try a different search term'}
                     </Text>
                 </View>
             )}
@@ -289,6 +273,7 @@ const HistoryScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
     // Search
     searchBar: {
@@ -303,120 +288,40 @@ const styles = StyleSheet.create({
         gap: spacing.sm,
     },
     searchIcon: { fontSize: 16 },
-    searchInput: {
-        flex: 1,
-        height: '100%',
-        fontSize: 14,
-        fontFamily: typography.body.fontFamily,
-    },
+    searchInput: { flex: 1, height: '100%', fontSize: 14, fontFamily: typography.body.fontFamily },
     clearIcon: { fontSize: 16, padding: 4 },
 
     // Filters
-    filterRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: spacing.md,
-        paddingRight: spacing.base,
-    },
-    filterChips: {
-        paddingLeft: spacing.base,
-        gap: spacing.sm,
-    },
-    filterChip: {
-        height: 32,
-        paddingHorizontal: spacing.base,
-        borderRadius: radius.pill,
-        borderWidth: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    filterRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, paddingRight: spacing.base },
+    filterChips: { paddingLeft: spacing.base, gap: spacing.sm },
+    filterChip: { height: 32, paddingHorizontal: spacing.base, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     filterChipText: { fontSize: 12, fontWeight: '600', fontFamily: typography.caption.fontFamily },
     sortBtn: { paddingHorizontal: spacing.md },
     sortLabel: { fontSize: 12, fontWeight: '600', fontFamily: typography.caption.fontFamily },
 
-    // Result count
-    resultCount: {
-        fontSize: 12,
-        marginHorizontal: spacing.base,
-        marginTop: spacing.md,
-        marginBottom: spacing.sm,
-        fontFamily: typography.caption.fontFamily,
-    },
+    resultCount: { fontSize: 12, marginHorizontal: spacing.base, marginTop: spacing.md, marginBottom: spacing.sm, fontFamily: typography.caption.fontFamily },
 
     // Scan list
-    scanList: {
-        paddingHorizontal: spacing.base,
-        gap: spacing.md,
-        paddingBottom: spacing.xxl,
-    },
-    scanCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-        ...shadows.sm,
-    },
-    thumbArea: {
-        width: 64,
-        height: 72,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    scanList: { paddingHorizontal: spacing.base, gap: spacing.md, paddingBottom: spacing.xxl },
+    scanCard: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.card, borderWidth: 1, overflow: 'hidden', ...shadows.sm },
+    thumbArea: { width: 64, height: 72, justifyContent: 'center', alignItems: 'center' },
     thumbIcon: { fontSize: 28 },
-    scanInfo: {
-        flex: 1,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-    },
-    scanName: {
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: typography.body.fontFamily,
-    },
-    scanMeta: {
-        flexDirection: 'row',
-        gap: spacing.xs,
-        marginTop: spacing.xs,
-    },
-    typeBadge: {
-        paddingHorizontal: 6,
-        paddingVertical: 1,
-        borderRadius: radius.pill,
-    },
+    realThumb: { width: '100%', height: '100%' },
+    scanInfo: { flex: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+    scanName: { fontSize: 14, fontWeight: '600', fontFamily: typography.body.fontFamily },
+    scanMeta: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+    typeBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill },
     typeBadgeText: { fontSize: 9, fontWeight: '700', fontFamily: typography.caption.fontFamily },
-    confPill: {
-        paddingHorizontal: 6,
-        paddingVertical: 1,
-        borderRadius: radius.pill,
-    },
+    confPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill },
     confPillText: { fontSize: 9, fontWeight: '700', fontFamily: typography.caption.fontFamily },
-    scanDate: {
-        fontSize: 11,
-        marginTop: spacing.xs,
-        fontFamily: typography.caption.fontFamily,
-    },
+    scanDate: { fontSize: 11, marginTop: spacing.xs, fontFamily: typography.caption.fontFamily },
     arrow: { fontSize: 24, paddingRight: spacing.md },
 
     // Empty state
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: spacing.xl,
-    },
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
     emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-    emptyTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: typography.h4.fontFamily,
-    },
-    emptySubtitle: {
-        fontSize: 14,
-        textAlign: 'center',
-        marginTop: spacing.sm,
-        fontFamily: typography.body.fontFamily,
-    },
+    emptyTitle: { fontSize: 16, fontWeight: '600', fontFamily: typography.h4.fontFamily },
+    emptySubtitle: { fontSize: 14, textAlign: 'center', marginTop: spacing.sm, fontFamily: typography.body.fontFamily },
 });
 
 export default HistoryScreen;

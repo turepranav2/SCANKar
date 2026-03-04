@@ -1,5 +1,5 @@
 // SCANKar — Home Dashboard Screen (Screen 02)
-// Matches Stitch screen: Home Dashboard
+// Refactored to fetch real stats and recent scans from ScanStorage
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -9,12 +9,12 @@ import {
     TouchableOpacity,
     FlatList,
     StyleSheet,
+    Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../context/ThemeContext';
-import { useApp } from '../context/AppContext';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { gradients } from '../theme/colors';
@@ -22,8 +22,8 @@ import TopBar from '../components/common/TopBar';
 import FAB from '../components/common/FAB';
 import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
-import { ScanIndexEntry } from '../models/Scan';
-import { getRecentScans } from '../services/storage/ScanStorage';
+import { Scan } from '../models/Scan';
+import { getRecentScans, getScanStats } from '../services/storage/ScanStorage';
 import { formatDate } from '../utils/formatters';
 import { getConfidenceColor, getConfidenceBgColor, formatConfidence } from '../utils/confidence';
 
@@ -41,10 +41,11 @@ const StatCard: React.FC<{ label: string; value: string | number }> = ({ label, 
 };
 
 // ─── Scan Thumbnail Card ───
-const ScanThumbCard: React.FC<{ scan: ScanIndexEntry; onPress: () => void }> = ({ scan, onPress }) => {
+const ScanThumbCard: React.FC<{ scan: Scan; onPress: () => void }> = ({ scan, onPress }) => {
     const { colors } = useTheme();
-    const confColor = getConfidenceColor(scan.overallConfidence, colors);
-    const confBgColor = getConfidenceBgColor(scan.overallConfidence, colors);
+    const cVal = scan.overallConfidence > 1 ? scan.overallConfidence / 100 : scan.overallConfidence;
+    const confColor = getConfidenceColor(cVal, colors);
+    const confBgColor = getConfidenceBgColor(cVal, colors);
 
     return (
         <TouchableOpacity
@@ -53,7 +54,11 @@ const ScanThumbCard: React.FC<{ scan: ScanIndexEntry; onPress: () => void }> = (
             activeOpacity={0.7}
         >
             <View style={[styles.thumbImage, { backgroundColor: colors.primarySubtle }]}>
-                <Text style={styles.thumbEmoji}>📄</Text>
+                {scan.thumbnailUri ? (
+                    <Image source={{ uri: scan.thumbnailUri }} style={styles.realThumb} resizeMode="cover" />
+                ) : (
+                    <Text style={styles.thumbEmoji}>📄</Text>
+                )}
             </View>
             <View style={styles.thumbInfo}>
                 <Text style={[styles.thumbName, { color: colors.text1 }]} numberOfLines={1}>
@@ -67,7 +72,7 @@ const ScanThumbCard: React.FC<{ scan: ScanIndexEntry; onPress: () => void }> = (
                     </View>
                     <View style={[styles.confPill, { backgroundColor: confBgColor }]}>
                         <Text style={[styles.confPillText, { color: confColor }]}>
-                            {formatConfidence(scan.overallConfidence)}
+                            {formatConfidence(cVal)}
                         </Text>
                     </View>
                 </View>
@@ -82,14 +87,25 @@ const ScanThumbCard: React.FC<{ scan: ScanIndexEntry; onPress: () => void }> = (
 // ─── Home Screen ───
 const HomeScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
-    const { colors, isDark } = useTheme();
-    const { setMode } = useTheme();
-    const { stats } = useApp();
-    const [recentScans, setRecentScans] = useState<ScanIndexEntry[]>([]);
+    const { colors, isDark, setMode } = useTheme();
+
+    const [recentScans, setRecentScans] = useState<Scan[]>([]);
+    const [stats, setStats] = useState({ total: 0, thisWeek: 0, exports: 0 });
 
     useEffect(() => {
-        getRecentScans(5).then(setRecentScans);
-    }, []);
+        const loadData = async () => {
+            const loadedScans = await getRecentScans(5);
+            setRecentScans(loadedScans);
+            const loadedStats = await getScanStats();
+            setStats(loadedStats);
+        };
+
+        const unsubscribe = navigation.addListener('focus', loadData);
+        // Load once immediately
+        loadData();
+
+        return unsubscribe;
+    }, [navigation]);
 
     const navigateToCamera = useCallback(() => {
         navigation.navigate(ROUTES.CAMERA);
@@ -97,10 +113,10 @@ const HomeScreen: React.FC = () => {
 
     const navigateToScan = useCallback(
         (scanId: string, docType: string) => {
-            if (docType === 'table') {
-                navigation.navigate(ROUTES.TABLE_REVIEW, { scanId });
-            } else {
+            if (docType === 'paragraph') {
                 navigation.navigate(ROUTES.PARAGRAPH_REVIEW, { scanId });
+            } else {
+                navigation.navigate(ROUTES.TABLE_REVIEW, { scanId });
             }
         },
         [navigation]
@@ -147,17 +163,14 @@ const HomeScreen: React.FC = () => {
 
                 {/* Stats Row */}
                 <View style={styles.statsRow}>
-                    <StatCard label="Total Scans" value={stats.totalScans} />
-                    <StatCard label="This Week" value={stats.weeklyScans} />
-                    <StatCard label="Exports" value={stats.totalExports} />
+                    <StatCard label="Total Scans" value={stats.total} />
+                    <StatCard label="This Week" value={stats.thisWeek} />
+                    <StatCard label="Exports" value={stats.exports} />
                 </View>
 
                 {/* Recent Scans Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: colors.text1 }]}>Recent Scans</Text>
-                    <TouchableOpacity>
-                        <Text style={[styles.seeAll, { color: colors.primary }]}>See All →</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {recentScans.length > 0 ? (
@@ -192,195 +205,52 @@ const HomeScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    scroll: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: spacing.base,
-        paddingBottom: 100,
-    },
+    container: { flex: 1 },
+    scroll: { flex: 1 },
+    scrollContent: { padding: spacing.base, paddingBottom: 100 },
 
     // Top Bar
-    topBarRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.base,
-    },
-    iconBtn: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    iconEmoji: {
-        fontSize: 22,
-    },
+    topBarRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
+    iconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    iconEmoji: { fontSize: 22 },
 
     // Hero Card
-    heroCard: {
-        height: 160,
-        borderRadius: radius.card,
-        padding: spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        overflow: 'hidden',
-        ...shadows.md,
-    },
-    heroLeft: {
-        flex: 1,
-    },
-    heroTitle: {
-        fontSize: 22,
-        fontWeight: '600',
-        color: '#FFFFFF',
-        fontFamily: typography.h2.fontFamily,
-    },
-    heroSubtitle: {
-        fontSize: 15,
-        fontWeight: '400',
-        color: 'rgba(255, 255, 255, 0.8)',
-        marginTop: spacing.sm,
-        fontFamily: typography.body.fontFamily,
-    },
-    heroIcon: {
-        fontSize: 64,
-        marginLeft: spacing.base,
-    },
+    heroCard: { height: 160, borderRadius: radius.card, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', ...shadows.md },
+    heroLeft: { flex: 1 },
+    heroTitle: { fontSize: 22, fontWeight: '600', color: '#FFFFFF', fontFamily: typography.h2.fontFamily },
+    heroSubtitle: { fontSize: 15, fontWeight: '400', color: 'rgba(255, 255, 255, 0.8)', marginTop: spacing.sm, fontFamily: typography.body.fontFamily },
+    heroIcon: { fontSize: 64, marginLeft: spacing.base },
 
     // Stats Row
-    statsRow: {
-        flexDirection: 'row',
-        gap: spacing.md,
-        marginTop: spacing.base,
-    },
-    statCard: {
-        flex: 1,
-        borderRadius: radius.card,
-        borderWidth: 1,
-        padding: spacing.base,
-        ...shadows.sm,
-    },
-    statLabel: {
-        fontSize: 12,
-        fontWeight: '400',
-        fontFamily: typography.caption.fontFamily,
-    },
-    statValue: {
-        fontSize: 22,
-        fontWeight: '600',
-        marginTop: spacing.xs,
-        fontFamily: typography.h2.fontFamily,
-    },
+    statsRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.base },
+    statCard: { flex: 1, borderRadius: radius.card, borderWidth: 1, padding: spacing.base, ...shadows.sm },
+    statLabel: { fontSize: 12, fontWeight: '400', fontFamily: typography.caption.fontFamily },
+    statValue: { fontSize: 22, fontWeight: '600', marginTop: spacing.xs, fontFamily: typography.h2.fontFamily },
 
     // Section Header
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: spacing.lg,
-        marginBottom: spacing.md,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: typography.h4.fontFamily,
-    },
-    seeAll: {
-        fontSize: 12,
-        fontWeight: '400',
-        fontFamily: typography.caption.fontFamily,
-    },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.md },
+    sectionTitle: { fontSize: 16, fontWeight: '600', fontFamily: typography.h4.fontFamily },
 
     // Thumbnail Cards
-    thumbList: {
-        gap: spacing.md,
-        paddingRight: spacing.base,
-    },
-    thumbCard: {
-        width: 160,
-        borderRadius: radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-        ...shadows.sm,
-    },
-    thumbImage: {
-        width: '100%',
-        height: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    thumbEmoji: {
-        fontSize: 36,
-    },
-    thumbInfo: {
-        padding: spacing.md,
-    },
-    thumbName: {
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: typography.h4.fontFamily,
-    },
-    thumbRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginTop: spacing.xs,
-    },
-    typeBadge: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 2,
-        borderRadius: radius.pill,
-    },
-    typeBadgeText: {
-        fontSize: 10,
-        fontWeight: '600',
-        fontFamily: typography.caption.fontFamily,
-    },
-    confPill: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 2,
-        borderRadius: radius.pill,
-    },
-    confPillText: {
-        fontSize: 10,
-        fontWeight: '600',
-        fontFamily: typography.caption.fontFamily,
-    },
-    thumbDate: {
-        fontSize: 11,
-        fontWeight: '400',
-        marginTop: spacing.xs,
-        fontFamily: typography.caption.fontFamily,
-    },
+    thumbList: { gap: spacing.md, paddingRight: spacing.base },
+    thumbCard: { width: 160, borderRadius: radius.card, borderWidth: 1, overflow: 'hidden', ...shadows.sm },
+    thumbImage: { width: '100%', height: 100, justifyContent: 'center', alignItems: 'center' },
+    realThumb: { width: '100%', height: '100%' },
+    thumbEmoji: { fontSize: 36 },
+    thumbInfo: { padding: spacing.md },
+    thumbName: { fontSize: 14, fontWeight: '600', fontFamily: typography.h4.fontFamily },
+    thumbRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+    typeBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
+    typeBadgeText: { fontSize: 10, fontWeight: '600', fontFamily: typography.caption.fontFamily },
+    confPill: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
+    confPillText: { fontSize: 10, fontWeight: '600', fontFamily: typography.caption.fontFamily },
+    thumbDate: { fontSize: 11, fontWeight: '400', marginTop: spacing.xs, fontFamily: typography.caption.fontFamily },
 
     // Empty State
-    emptyState: {
-        borderRadius: radius.card,
-        borderWidth: 1,
-        borderStyle: 'dashed',
-        padding: spacing.xl,
-        alignItems: 'center',
-    },
-    emptyIcon: {
-        fontSize: 48,
-        marginBottom: spacing.md,
-    },
-    emptyTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: typography.h4.fontFamily,
-    },
-    emptySubtitle: {
-        fontSize: 14,
-        fontWeight: '400',
-        textAlign: 'center',
-        marginTop: spacing.sm,
-        fontFamily: typography.body.fontFamily,
-    },
+    emptyState: { borderRadius: radius.card, borderWidth: 1, borderStyle: 'dashed', padding: spacing.xl, alignItems: 'center' },
+    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+    emptyTitle: { fontSize: 16, fontWeight: '600', fontFamily: typography.h4.fontFamily },
+    emptySubtitle: { fontSize: 14, fontWeight: '400', textAlign: 'center', marginTop: spacing.sm, fontFamily: typography.body.fontFamily },
 });
 
 export default HomeScreen;

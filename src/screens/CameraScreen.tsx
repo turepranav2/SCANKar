@@ -1,7 +1,7 @@
 // SCANKar — Camera Screen (Screen 03)
-// Matches Stitch screen: Camera Capture
+// Features: react-native-vision-camera, flash, auto/manual capture, gallery import
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -9,13 +9,19 @@ import {
     StyleSheet,
     StatusBar,
     Alert,
+    Platform,
+    Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
+import ImagePicker from 'react-native-image-crop-picker';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+
 import { useScan } from '../context/ScanContext';
 import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
-import { spacing } from '../theme/spacing';
+import { spacing, radius } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import DocTypeChips, { DocTypeFilter } from '../components/camera/DocTypeChips';
 import CaptureButton from '../components/camera/CaptureButton';
@@ -26,40 +32,110 @@ type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 const CameraScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const { setCapturedImage } = useScan();
+    
     const [docTypeFilter, setDocTypeFilter] = useState<DocTypeFilter>('auto');
     const [flashOn, setFlashOn] = useState(false);
     const [autoCapture, setAutoCapture] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
+    
+    // Camera state
+    const device = useCameraDevice('back');
+    const cameraRef = useRef<Camera>(null);
+    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
     const handleClose = useCallback(() => {
         navigation.goBack();
     }, [navigation]);
 
+    // Request permissions
+    useEffect(() => {
+        const checkPermission = async () => {
+            const permission = Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA;
+            let p = await check(permission);
+            if (p !== RESULTS.GRANTED) {
+                p = await request(permission);
+            }
+            setHasPermission(p === RESULTS.GRANTED);
+        };
+        checkPermission();
+    }, []);
+
     const handleCapture = useCallback(async () => {
+        if (!cameraRef.current) return;
         setIsCapturing(true);
 
-        // Placeholder: simulate camera capture
-        // In production, uses react-native-vision-camera
-        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            const photo = await cameraRef.current.takePhoto({
+                flash: flashOn ? 'on' : 'off',
+            });
+            const imageUri = `file://${photo.path}`;
+            setCapturedImage(imageUri);
+            
+            // Pass the image URI and the selected docType
+            navigation.navigate(ROUTES.PREVIEW_CROP, { imageUri, docType: docTypeFilter });
+        } catch (e) {
+            Alert.alert('Capture Error', 'Failed to capture image');
+        } finally {
+            setIsCapturing(false);
+        }
+    }, [navigation, setCapturedImage, flashOn, docTypeFilter]);
 
-        const mockImageUri = 'file:///captured_document.jpg';
-        setCapturedImage(mockImageUri);
-        setIsCapturing(false);
+    const handleGallery = useCallback(async () => {
+        try {
+            const image = await ImagePicker.openPicker({
+                mediaType: 'photo',
+            });
+            setCapturedImage(image.path);
+            navigation.navigate(ROUTES.PREVIEW_CROP, { imageUri: image.path, docType: docTypeFilter });
+        } catch (e) {
+            // User cancelled
+        }
+    }, [navigation, setCapturedImage, docTypeFilter]);
 
-        navigation.navigate(ROUTES.PREVIEW_CROP, { imageUri: mockImageUri });
-    }, [navigation, setCapturedImage]);
+    // Permission denied UI
+    if (hasPermission === false) {
+        return (
+            <View style={styles.permissionContainer}>
+                <Text style={styles.permissionTitle}>Camera Access Required</SCANKar>
+                <Text style={styles.permissionDesc}>
+                    Please grant camera access to scan documents.
+                </Text>
+                <TouchableOpacity style={styles.grantBtn} onPress={() => Linking.openSettings()}>
+                    <Text style={styles.grantBtnText}>Grant Camera Access</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sideButton} onPress={handleGallery}>
+                    <Text style={styles.sideButtonIcon}>🖼️</Text>
+                    <Text style={[styles.sideButtonLabel, { marginTop: 4 }]}>Open Gallery Instead</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.closeBtnOverlay} onPress={handleClose}>
+                    <Text style={styles.closeIcon}>✕</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
-    const handleGallery = useCallback(() => {
-        // Placeholder: open image picker
-        Alert.alert('Gallery', 'Image picker will be integrated with react-native-image-picker');
-    }, []);
+    // No camera device (emulator fallback)
+    const renderNoDevice = () => (
+        <View style={styles.noDeviceContainer}>
+            <Text style={styles.noDeviceText}>Camera not available — use Gallery to import</Text>
+        </View>
+    );
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-            {/* Camera Preview (simulated dark bg) */}
+            {/* Camera Preview */}
             <View style={styles.cameraPreview}>
+                {device && hasPermission ? (
+                    <Camera
+                        ref={cameraRef}
+                        style={StyleSheet.absoluteFill}
+                        device={device}
+                        isActive={true}
+                        photo={true}
+                    />
+                ) : renderNoDevice()}
                 {/* Document overlay brackets */}
                 <DocumentOverlay />
             </View>
@@ -85,12 +161,16 @@ const CameraScreen: React.FC = () => {
 
             {/* Bottom Overlay Bar */}
             <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.sideButton} onPress={() => setFlashOn(!flashOn)}>
+                <TouchableOpacity 
+                    style={[styles.sideButton, !device && { opacity: 0.5 }]} 
+                    onPress={() => setFlashOn(!flashOn)}
+                    disabled={!device}
+                >
                     <Text style={styles.sideButtonIcon}>{flashOn ? '⚡' : '🔦'}</Text>
                     <Text style={styles.sideButtonLabel}>Flash</Text>
                 </TouchableOpacity>
 
-                <CaptureButton onPress={handleCapture} disabled={isCapturing} />
+                <CaptureButton onPress={handleCapture} disabled={isCapturing || !device} />
 
                 <TouchableOpacity style={styles.sideButton} onPress={handleGallery}>
                     <Text style={styles.sideButtonIcon}>🖼️</Text>
@@ -110,7 +190,60 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         backgroundColor: '#1A1A2E',
     },
-
+    permissionContainer: {
+        flex: 1,
+        backgroundColor: '#000000',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: spacing.xl,
+    },
+    permissionTitle: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: spacing.sm,
+        fontFamily: typography.h3.fontFamily,
+    },
+    permissionDesc: {
+        color: '#AAAAAA',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: spacing.xl,
+        fontFamily: typography.body.fontFamily,
+    },
+    grantBtn: {
+        backgroundColor: '#2563EB',
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.md,
+        borderRadius: radius.button,
+        marginBottom: spacing.xl,
+    },
+    grantBtnText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+        fontFamily: typography.button.fontFamily,
+    },
+    closeBtnOverlay: {
+        position: 'absolute',
+        top: 52,
+        left: spacing.base,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    noDeviceContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#1A1A2E',
+    },
+    noDeviceText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontFamily: typography.caption.fontFamily,
+    },
     // Top bar
     topBar: {
         position: 'absolute',
