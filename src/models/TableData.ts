@@ -26,10 +26,24 @@ export interface MergedCell {
     endCol: number;
 }
 
+export interface TableHeader {
+    id: string;
+    value: string;
+    confidence: number;
+}
+
+export interface TableRowCell {
+    id: string;
+    value: string;
+    confidence: number;
+}
+
 export interface TableData {
-    rows: number;
-    columns: number;
-    cells: TableCell[][];
-    mergedCells: MergedCell[];
-    hasHeaderRow: boolean;
+    rowCount?: number;
+    columnCount?: number;
+    cells?: TableCell[][];
+    mergedCells?: MergedCell[];
+    hasHeaderRow?: boolean;
+    headers?: TableHeader[];
+    rows?: TableRowCell[][];
 }

@@ -11,7 +11,7 @@ export interface MLModelInfo {
     assetPath: string;
 }
 
-export type ModelStatusValue = 'loaded' | 'loading' | 'error' | 'unloaded';
+export type ModelStatusValue = 'loaded' | 'loading' | 'error' | 'unloaded' | 'idle';
 
 export interface ModelStatus {
     modelId: string;

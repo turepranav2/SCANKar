@@ -36,6 +36,98 @@ if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
 endif()
 
+# LIB_CUSTOM_SRCS at D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/CMakeLists.txt:12 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/*.cpp")
+set(OLD_GLOB
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# LIB_CUSTOM_SRCS at D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/CMakeLists.txt:12 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../../common/cpp/react/renderer/components/RNCSlider/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../../common/cpp/react/renderer/components/RNCSlider/RNCSliderMeasurementsManager.cpp"
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../../common/cpp/react/renderer/components/RNCSlider/RNCSliderShadowNode.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# LIB_CODEGEN_SRCS at D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/CMakeLists.txt:13 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/RNCSlider-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# LIB_CODEGEN_SRCS at D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/CMakeLists.txt:13 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/ComponentDescriptors.cpp"
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/EventEmitters.cpp"
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/Props.cpp"
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/ShadowNodes.cpp"
+  "D:/Projects/SCANKar/node_modules/@react-native-community/slider/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/RNCSlider/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/RNCImageCropPickerSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/ComponentDescriptors.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/EventEmitters.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/Props.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/ShadowNodes.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/react/renderer/components/RNCImageCropPickerSpec/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/RNPermissionsSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/ComponentDescriptors.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/EventEmitters.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/Props.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/ShadowNodes.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-permissions/android/build/generated/source/codegen/jni/react/renderer/components/RNPermissionsSpec/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
 # LIB_CUSTOM_SRCS at D:/Projects/SCANKar/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt:12 (file)
 file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-safe-area-context/android/src/main/jni/*.cpp")
 set(OLD_GLOB
@@ -131,6 +223,30 @@ set(OLD_GLOB
   "D:/Projects/SCANKar/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/Props.cpp"
   "D:/Projects/SCANKar/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/ShadowNodes.cpp"
   "D:/Projects/SCANKar/node_modules/react-native-screens/android/src/main/jni/../../../build/generated/source/codegen/jni/react/renderer/components/rnscreens/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/RNShareSpec-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/*.cpp")
+set(OLD_GLOB
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/ComponentDescriptors.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/EventEmitters.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/Props.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/ShadowNodes.cpp"
+  "D:/Projects/SCANKar/node_modules/react-native-share/android/build/generated/source/codegen/jni/react/renderer/components/RNShareSpec/States.cpp"
   )
 if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   message("-- GLOB mismatch!")

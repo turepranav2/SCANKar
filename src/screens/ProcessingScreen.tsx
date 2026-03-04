@@ -80,7 +80,7 @@ const ProcessingScreen: React.FC = () => {
                 setProcessingPhase(PHASE_KEYS[0]);
                 setCurrentPhaseIndex(0);
                 Animated.timing(progressAnim, { toValue: 1 / 5, duration: 800, useNativeDriver: false }).start();
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise<void>(r => setTimeout(() => r(), 800));
                 if (!isMounted) return;
 
                 // Phase 2: Detecting Type (1000ms)
@@ -99,14 +99,14 @@ const ProcessingScreen: React.FC = () => {
                 const detectedType: DocumentType =
                     (docTypePassed && docTypePassed !== 'auto') ? (docTypePassed as DocumentType) : (width > height ? 'paragraph' : 'table');
 
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise<void>(r => setTimeout(() => r(), 1000));
                 if (!isMounted) return;
 
                 // Phase 3: Extracting Structure (800ms)
                 setProcessingPhase(PHASE_KEYS[2]);
                 setCurrentPhaseIndex(2);
                 Animated.timing(progressAnim, { toValue: 3 / 5, duration: 800, useNativeDriver: false }).start();
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise<void>(r => setTimeout(() => r(), 800));
                 if (!isMounted) return;
 
                 // Phase 4: Reading Text (1200ms)
@@ -151,7 +151,7 @@ const ProcessingScreen: React.FC = () => {
                     };
                 }
 
-                await new Promise(r => setTimeout(r, 1200));
+                await new Promise<void>(r => setTimeout(() => r(), 1200));
                 if (!isMounted) return;
 
                 // Phase 5: Validating Data (600ms)
@@ -161,7 +161,7 @@ const ProcessingScreen: React.FC = () => {
 
                 await saveScan(newScan);
 
-                await new Promise(r => setTimeout(r, 600));
+                await new Promise<void>(r => setTimeout(() => r(), 600));
                 if (!isMounted) return;
 
                 setProcessingPhase('idle');

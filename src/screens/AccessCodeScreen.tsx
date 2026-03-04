@@ -86,7 +86,7 @@ const AccessCodeScreen: React.FC = () => {
         setIsActivating(true);
 
         // Small delay for UX feedback
-        await new Promise(resolve => setTimeout(resolve, 400));
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 400));
 
         const result = unlock(code);
         setIsActivating(false);

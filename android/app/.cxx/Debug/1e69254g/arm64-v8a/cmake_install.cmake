@@ -45,8 +45,12 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/rnasyncstorage_autolinked_build/cmake_install.cmake")
+  include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/RNCSlider_autolinked_build/cmake_install.cmake")
+  include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/RNCImageCropPickerSpec_autolinked_build/cmake_install.cmake")
+  include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/RNPermissionsSpec_autolinked_build/cmake_install.cmake")
   include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/safeareacontext_autolinked_build/cmake_install.cmake")
   include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/rnscreens_autolinked_build/cmake_install.cmake")
+  include("D:/Projects/SCANKar/android/app/.cxx/Debug/1e69254g/arm64-v8a/RNShareSpec_autolinked_build/cmake_install.cmake")
 
 endif()
 

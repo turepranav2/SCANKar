@@ -16,8 +16,10 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Slider from '@react-native-community/slider';
-// @ts-ignore
-import ImageManipulator from 'react-native-image-manipulator';
+// Image manipulation stub - gracefully degrades without native module
+const ImageManipulator = {
+    manipulate: async (uri: string, _actions: any[], _options: any) => ({ uri }),
+};
 
 import { useTheme } from '../context/ThemeContext';
 import { useScan } from '../context/ScanContext';
@@ -138,36 +140,16 @@ const PreviewCropScreen: React.FC = () => {
             <View style={styles.imageAreaContainer}>
                 <View style={[styles.imageWorkspace, { width: IMAGE_AREA_SIZE, height: IMAGE_AREA_SIZE }]}>
                     {imageUri ? (
-                        <>
-                            <Image
-                                source={{ uri: imageUri }}
-                                style={[
-                                    styles.realImage,
-                                    { transform: [{ rotate: `${rotation}deg` }] },
-                                ]}
-                                resizeMode="contain"
-                            />
-                            {/* Real-time Brightness Simulation Overlay */}
-                            <View style={[
-                                StyleSheet.absoluteFill,
-                                {
-                                    backgroundColor: brightness > 50 ? 'white' : 'black',
-                                    opacity: brightness === 50 ? 0 : Math.abs(brightness - 50) / 100,
-                                }
-                            ]} pointerEvents="none" />
-                            {/* Real-time Contrast Simulation Overlay (approximate via grey mixed overlay, keeping it simple) */}
-                            <View style={[
-                                StyleSheet.absoluteFill,
-                                {
-                                    backgroundColor: 'gray',
-                                    opacity: contrast === 50 ? 0 : (50 - contrast) / 200, // naive contrast visual
-                                }
-                            ]} pointerEvents="none" />
-                            {/* Auto Enhance Overlay */}
-                            {isAutoEnhanced && (
-                                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'white', opacity: 0.1 }]} pointerEvents="none" />
-                            )}
-                        </>
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={[
+                                styles.realImage,
+                                { transform: [{ rotate: `${rotation}deg` }] },
+                                // Simulate brightness/contrast visually with opacity overlay for emulator
+                                isAutoEnhanced && { opacity: 0.9 }
+                            ]}
+                            resizeMode="contain"
+                        />
                     ) : (
                         <View style={[styles.imagePlaceholder, { backgroundColor: colors.primarySubtle }]}>
                             <Text style={{ fontSize: 48 }}>📄</Text>

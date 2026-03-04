@@ -96,7 +96,7 @@ const CameraScreen: React.FC = () => {
     if (hasPermission === false) {
         return (
             <View style={styles.permissionContainer}>
-                <Text style={styles.permissionTitle}>Camera Access Required</SCANKar>
+                <Text style={styles.permissionTitle}>Camera Access Required</Text>
                 <Text style={styles.permissionDesc}>
                     Please grant camera access to scan documents.
                 </Text>

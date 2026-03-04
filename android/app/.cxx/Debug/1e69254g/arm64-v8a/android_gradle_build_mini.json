@@ -1,8 +1,12 @@
 {
   "buildFiles": [
     "D:\\Projects\\SCANKar\\node_modules\\@react-native-async-storage\\async-storage\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "D:\\Projects\\SCANKar\\node_modules\\@react-native-community\\slider\\android\\src\\main\\jni\\CMakeLists.txt",
+    "D:\\Projects\\SCANKar\\node_modules\\react-native-image-crop-picker\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "D:\\Projects\\SCANKar\\node_modules\\react-native-permissions\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\Projects\\SCANKar\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
     "D:\\Projects\\SCANKar\\node_modules\\react-native-screens\\android\\src\\main\\jni\\CMakeLists.txt",
+    "D:\\Projects\\SCANKar\\node_modules\\react-native-share\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "D:\\Projects\\SCANKar\\node_modules\\react-native\\ReactAndroid\\cmake-utils\\default-app-setup\\CMakeLists.txt"
   ],
   "cleanCommandsComponents": [
@@ -20,6 +24,16 @@
     "{LIST_OF_TARGETS_TO_BUILD}"
   ],
   "libraries": {
+    "react_codegen_RNCSlider::@4898bc4726ecf1751b6a": {
+      "artifactName": "react_codegen_RNCSlider",
+      "abi": "arm64-v8a",
+      "output": "D:\\Projects\\SCANKar\\android\\app\\build\\intermediates\\cxx\\Debug\\1e69254g\\obj\\arm64-v8a\\libreact_codegen_RNCSlider.so",
+      "runtimeFiles": [
+        "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\6cb94eb4240b26bae55579cb79d8f81a\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so",
+        "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
+      ]
+    },
     "react_codegen_safeareacontext::@7984cd80db47aa7b952a": {
       "artifactName": "react_codegen_safeareacontext",
       "abi": "arm64-v8a",
@@ -29,6 +43,16 @@
         "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
         "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
       ]
+    },
+    "react_codegen_RNPermissionsSpec::@7ad697819b753921c957": {
+      "artifactName": "react_codegen_RNPermissionsSpec",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
+    },
+    "react_codegen_RNCImageCropPickerSpec::@702b02f8d2524609d414": {
+      "artifactName": "react_codegen_RNCImageCropPickerSpec",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
     },
     "react_codegen_rnscreens::@25bcbd507e98d3a854ad": {
       "artifactName": "react_codegen_rnscreens",
@@ -45,12 +69,18 @@
       "abi": "arm64-v8a",
       "output": "D:\\Projects\\SCANKar\\android\\app\\build\\intermediates\\cxx\\Debug\\1e69254g\\obj\\arm64-v8a\\libappmodules.so",
       "runtimeFiles": [
+        "D:\\Projects\\SCANKar\\android\\app\\build\\intermediates\\cxx\\Debug\\1e69254g\\obj\\arm64-v8a\\libreact_codegen_RNCSlider.so",
         "D:\\Projects\\SCANKar\\android\\app\\build\\intermediates\\cxx\\Debug\\1e69254g\\obj\\arm64-v8a\\libreact_codegen_safeareacontext.so",
         "D:\\Projects\\SCANKar\\android\\app\\build\\intermediates\\cxx\\Debug\\1e69254g\\obj\\arm64-v8a\\libreact_codegen_rnscreens.so",
         "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\6cb94eb4240b26bae55579cb79d8f81a\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so",
         "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
         "C:\\Users\\turep\\.gradle\\caches\\9.0.0\\transforms\\df62f4a3c6818dc3cc09553936c6f2fd\\transformed\\react-android-0.84.1-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
       ]
+    },
+    "react_codegen_RNShareSpec::@e6c4c2b5aedb2ea213b7": {
+      "artifactName": "react_codegen_RNShareSpec",
+      "abi": "arm64-v8a",
+      "runtimeFiles": []
     },
     "react_codegen_rnasyncstorage::@1596841e19ec5b9eeffe": {
       "artifactName": "react_codegen_rnasyncstorage",

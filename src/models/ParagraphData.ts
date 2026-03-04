@@ -14,12 +14,13 @@ export interface WordResult {
 
 export interface TextBlock {
     id: string;
-    type: TextBlockType;
+    type?: TextBlockType;
     text: string;
-    words: WordResult[];
+    words?: WordResult[];
     confidence: number;
-    boundingBox: BoundingBox;
-    isManualEntry: boolean;
+    boundingBox?: BoundingBox;
+    isManualEntry?: boolean;
+    language?: string;
 }
 
 export interface ParagraphData {

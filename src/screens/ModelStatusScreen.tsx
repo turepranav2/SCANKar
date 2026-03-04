@@ -14,14 +14,14 @@ import { useTheme } from '../context/ThemeContext';
 import TopBar from '../components/common/TopBar';
 import { SettingsStackParamList } from '../navigation/MainNavigator';
 import { ML_MODELS } from '../constants/mlModels';
-import { MLModelInfo, ModelStatus } from '../models/MLModel';
+import { MLModelInfo, ModelStatusValue } from '../models/MLModel';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 
 type NavProp = NativeStackNavigationProp<SettingsStackParamList>;
 
 // Simulate model statuses
-const MODEL_STATUSES: Record<string, { status: ModelStatus; loadTimeMs?: number }> = {
+const MODEL_STATUSES: Record<string, { status: ModelStatusValue; loadTimeMs?: number }> = {
     image_enhancement: { status: 'loaded', loadTimeMs: 120 },
     document_detector: { status: 'loaded', loadTimeMs: 85 },
     table_recognizer: { status: 'loaded', loadTimeMs: 210 },
@@ -31,11 +31,12 @@ const MODEL_STATUSES: Record<string, { status: ModelStatus; loadTimeMs?: number 
     layout_analyzer: { status: 'loaded', loadTimeMs: 150 },
 };
 
-const STATUS_CONFIG: Record<ModelStatus, { color: string; bg: string; label: string; icon: string }> = {
+const STATUS_CONFIG: Record<ModelStatusValue, { color: string; bg: string; label: string; icon: string }> = {
     idle: { color: '#94A3B8', bg: '#F1F5F9', label: 'Idle', icon: '○' },
     loading: { color: '#F59E0B', bg: '#FFFBEB', label: 'Loading', icon: '⏳' },
     loaded: { color: '#22C55E', bg: '#F0FDF4', label: 'Ready', icon: '✓' },
     error: { color: '#EF4444', bg: '#FEF2F2', label: 'Error', icon: '✕' },
+    unloaded: { color: '#94A3B8', bg: '#F1F5F9', label: 'Unloaded', icon: '—' },
 };
 
 const formatSize = (bytes: number): string => {
@@ -51,7 +52,7 @@ const ModelStatusScreen: React.FC = () => {
     const loadedCount = Object.values(MODEL_STATUSES).filter(s => s.status === 'loaded').length;
 
     const renderModel = ({ item }: { item: MLModelInfo }) => {
-        const statusInfo = MODEL_STATUSES[item.id] || { status: 'idle' as ModelStatus };
+        const statusInfo = MODEL_STATUSES[item.id] || { status: 'idle' as ModelStatusValue };
         const config = STATUS_CONFIG[statusInfo.status];
 
         return (

@@ -46,7 +46,7 @@ const ExportScreen: React.FC = () => {
         setIsExporting(true);
 
         // Simulate export processing
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
 
         setIsExporting(false);
         setExportComplete(true);
