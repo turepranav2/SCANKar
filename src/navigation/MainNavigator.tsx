@@ -40,6 +40,7 @@ export type HistoryStackParamList = {
     [ROUTES.HISTORY]: undefined;
     [ROUTES.TABLE_REVIEW]: { scanId: string };
     [ROUTES.PARAGRAPH_REVIEW]: { scanId: string };
+    [ROUTES.TABLE_EDITOR]: { scanId: string };
     [ROUTES.EXPORT]: { scanId: string };
 };
 
@@ -80,6 +81,7 @@ const HistoryStackNavigator: React.FC = () => (
         <HistoryStack.Screen name={ROUTES.HISTORY} component={HistoryScreen} />
         <HistoryStack.Screen name={ROUTES.TABLE_REVIEW} component={TableReviewScreen} />
         <HistoryStack.Screen name={ROUTES.PARAGRAPH_REVIEW} component={ParagraphReviewScreen} />
+        <HistoryStack.Screen name={ROUTES.TABLE_EDITOR} component={TableEditorScreen} />
         <HistoryStack.Screen name={ROUTES.EXPORT} component={ExportScreen} />
     </HistoryStack.Navigator>
 );
