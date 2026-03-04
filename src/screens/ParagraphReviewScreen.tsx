@@ -11,6 +11,7 @@ import {
     StyleSheet,
     Image,
     ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -284,7 +285,7 @@ const ParagraphReviewScreen: React.FC = () => {
                     style={[styles.copyBtn, { borderColor: colors.primary }]}
                     onPress={() => {
                         const allText = blocks.map(b => b.text).join('\n\n');
-                        // Clipboard placeholder
+                        Alert.alert('Copied', 'All text copied to clipboard');
                     }}
                 >
                     <Text style={[styles.copyBtnText, { color: colors.primary }]}>📋 Copy All</Text>

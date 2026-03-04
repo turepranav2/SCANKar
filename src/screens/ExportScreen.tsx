@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import TopBar from '../components/common/TopBar';
@@ -51,6 +52,10 @@ const ExportScreen: React.FC = () => {
         setIsExporting(false);
         setExportComplete(true);
         updateStats({ totalExports: stats.totalExports + 1 });
+
+        // Persist export count to AsyncStorage so Home screen picks it up
+        const currentCount = parseInt((await AsyncStorage.getItem('scankar_exports_count')) || '0', 10);
+        await AsyncStorage.setItem('scankar_exports_count', String(currentCount + 1));
 
         Alert.alert(
             'Export Complete ✓',
