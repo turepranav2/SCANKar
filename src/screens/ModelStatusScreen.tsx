@@ -1,7 +1,7 @@
 // SCANKar — Model Status Screen (Screen 12)
 // Shows status of all 7 TFLite ML models via ModelManager
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -23,34 +23,46 @@ type NavProp = NativeStackNavigationProp<SettingsStackParamList>;
 type StatusKey = ModelStatus['status']; // 'loaded' | 'missing' | 'error' | 'loading'
 
 const STATUS_CONFIG: Record<StatusKey, { color: string; bg: string; label: string; icon: string }> = {
-    loaded: { color: '#22C55E', bg: '#F0FDF4', label: 'Ready', icon: '✓' },
+    loaded: { color: '#22C55E', bg: '#F0FDF4', label: 'Ready', icon: '●' },
     missing: { color: '#F59E0B', bg: '#FFFBEB', label: 'Awaiting model', icon: '○' },
     loading: { color: '#3B82F6', bg: '#EFF6FF', label: 'Loading', icon: '⏳' },
     error: { color: '#EF4444', bg: '#FEF2F2', label: 'Error', icon: '✕' },
 };
 
-const formatSize = (bytes: number): string => {
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / 1024).toFixed(0)} KB`;
+const formatSizeKB = (sizeMB: number): string => {
+    const kb = sizeMB * 1024;
+    if (kb < 1) return `${Math.round(sizeMB * 1024 * 1024)} B`;
+    return `${kb.toFixed(1)} KB`;
 };
 
 const ModelStatusScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
     const { colors } = useTheme();
+    const [verified, setVerified] = useState(false);
 
     const models = useMemo(() => ModelManager.getModelStatus(), []);
-    const totalSize = models.reduce((sum, m) => sum + m.sizeMB * 1024 * 1024, 0);
+    const totalKB = Math.round(models.reduce((sum, m) => sum + m.sizeMB * 1024, 0));
     const loadedCount = models.filter(m => m.status === 'loaded').length;
     const missingCount = models.filter(m => m.status === 'missing').length;
+    const allLoaded = loadedCount === models.length;
+
+    // Run async asset verification on mount
+    useEffect(() => {
+        ModelManager.checkModelsLoaded().then((ok) => {
+            setVerified(ok);
+        });
+    }, []);
 
     const renderModel = ({ item }: { item: ModelStatus }) => {
         const config = STATUS_CONFIG[item.status];
+        // Use display name from registry
+        const displayName = ModelManager.getDisplayName(item.name);
 
         return (
             <View style={[styles.modelCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.modelHeader}>
                     <View style={styles.modelNameRow}>
-                        <Text style={[styles.modelName, { color: colors.text1 }]}>{item.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Text>
+                        <Text style={[styles.modelName, { color: colors.text1 }]}>{displayName}</Text>
                         <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
                             <Text style={[styles.statusIcon, { color: config.color }]}>{config.icon}</Text>
                             <Text style={[styles.statusLabel, { color: config.color }]}>{config.label}</Text>
@@ -62,11 +74,17 @@ const ModelStatusScreen: React.FC = () => {
                 <View style={[styles.modelDetails, { borderTopColor: colors.border }]}>
                     <View style={styles.detailItem}>
                         <Text style={[styles.detailLabel, { color: colors.text2 }]}>Size</Text>
-                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{item.sizeMB} MB</Text>
+                        <Text style={[styles.detailValue, { color: colors.text1 }]}>{formatSizeKB(item.sizeMB)}</Text>
                     </View>
                     <View style={styles.detailItem}>
                         <Text style={[styles.detailLabel, { color: colors.text2 }]}>File</Text>
                         <Text style={[styles.detailValue, { color: colors.text1 }]} numberOfLines={1}>{item.filename}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                        <Text style={[styles.detailLabel, { color: colors.text2 }]}>Verified</Text>
+                        <Text style={[styles.detailValue, { color: item.status === 'loaded' ? '#22C55E' : colors.text1 }]}>
+                            {item.status === 'loaded' ? '✓' : '—'}
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -81,15 +99,22 @@ const ModelStatusScreen: React.FC = () => {
                 onLeftPress={() => navigation.goBack()}
             />
 
-            {/* Info banner when models are missing */}
-            {missingCount > 0 && (
+            {/* Info banner — conditional on model state */}
+            {allLoaded ? (
+                <View style={[styles.infoBanner, { backgroundColor: '#F0FDF4', borderColor: '#22C55E' }]}>
+                    <Text style={styles.infoBannerIcon}>✅</Text>
+                    <Text style={[styles.infoBannerText, { color: '#166534' }]}>
+                        {totalKB} KB — All {models.length} models loaded and ready
+                    </Text>
+                </View>
+            ) : missingCount > 0 ? (
                 <View style={[styles.infoBanner, { backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }]}>
                     <Text style={styles.infoBannerIcon}>ℹ️</Text>
                     <Text style={styles.infoBannerText}>
-                        Some models pending — using smart mock data. Drop .tflite files into assets/models/ to activate.
+                        {missingCount} model{missingCount > 1 ? 's' : ''} pending — using smart mock data. Drop .tflite files into assets/models/ to activate.
                     </Text>
                 </View>
-            )}
+            ) : null}
 
             {/* Summary Card */}
             <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -105,7 +130,7 @@ const ModelStatusScreen: React.FC = () => {
                     </View>
                     <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
                     <View style={styles.summaryItem}>
-                        <Text style={[styles.summaryValue, { color: colors.text1 }]}>{formatSize(totalSize)}</Text>
+                        <Text style={[styles.summaryValue, { color: colors.text1 }]}>{totalKB} KB</Text>
                         <Text style={[styles.summaryLabel, { color: colors.text2 }]}>Total Size</Text>
                     </View>
                 </View>
