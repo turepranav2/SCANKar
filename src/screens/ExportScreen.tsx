@@ -189,7 +189,7 @@ const ExportScreen: React.FC = () => {
         switch (selectedFormat) {
             case 'xlsx':
             case 'docx':
-                return renderTablePreview() || renderParagraphPreview();
+                return scan.tableData ? renderTablePreview() : renderParagraphPreview();
             case 'pdf':
                 return scan.tableData ? renderTablePreview() : renderParagraphPreview();
             case 'csv':

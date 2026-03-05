@@ -85,8 +85,9 @@ const CameraScreen: React.FC = () => {
             const image = await ImagePicker.openPicker({
                 mediaType: 'photo',
             });
-            setCapturedImage(image.path);
-            navigation.navigate(ROUTES.PREVIEW_CROP, { imageUri: image.path, docType: docTypeFilter });
+            const imageUri = image.path.startsWith('file://') ? image.path : `file://${image.path}`;
+            setCapturedImage(imageUri);
+            navigation.navigate(ROUTES.PREVIEW_CROP, { imageUri, docType: docTypeFilter });
         } catch (e) {
             // User cancelled
         }
