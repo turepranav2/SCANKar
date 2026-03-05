@@ -22,7 +22,7 @@ import {
 import { Scan } from '../models/Scan';
 import { ExportFormat } from '../models/ExportPayload';
 
-const EXPORT_DIR = `${RNFS.DownloadDirectoryPath}/SCANKar`;
+const EXPORT_DIR = `${RNFS.CachesDirectoryPath}/SCANKar_Exports`;
 
 async function ensureDir(): Promise<void> {
     const exists = await RNFS.exists(EXPORT_DIR);
@@ -68,7 +68,7 @@ async function exportExcel(
             rows.push(['--- Confidence Scores ---']);
             if (scan.tableData.rows) {
                 for (const row of scan.tableData.rows) {
-                    rows.push(row.map(cell => `${Math.round(cell.confidence * 100)}%`));
+                    rows.push(row.map(cell => `${Math.round(cell.confidence)}%`));
                 }
             }
         }
@@ -79,7 +79,7 @@ async function exportExcel(
         const rows = scan.paragraphData.blocks.map(b => {
             const row: string[] = [b.text];
             if (includeConfidence) {
-                row.push(`${Math.round(b.confidence * 100)}%`);
+                row.push(`${Math.round(b.confidence)}%`);
             }
             return row;
         });
@@ -133,7 +133,7 @@ async function exportPDF(
                 for (const cell of row) {
                     html += `<td>${escapeHtml(cell.value)}`;
                     if (includeConfidence) {
-                        html += ` <span class="conf">(${Math.round(cell.confidence * 100)}%)</span>`;
+                        html += ` <span class="conf">(${Math.round(cell.confidence)}%)</span>`;
                     }
                     html += '</td>';
                 }
@@ -153,7 +153,7 @@ async function exportPDF(
         for (const block of scan.paragraphData.blocks) {
             html += `<div class="block">${escapeHtml(block.text)}`;
             if (includeConfidence) {
-                html += ` <span class="conf">(${Math.round(block.confidence * 100)}%)</span>`;
+                html += ` <span class="conf">(${Math.round(block.confidence)}%)</span>`;
             }
             html += '</div>';
         }
@@ -253,7 +253,7 @@ async function exportWord(
         for (const block of scan.paragraphData.blocks) {
             const runs: TextRun[] = [new TextRun({ text: block.text })];
             if (includeConfidence) {
-                runs.push(new TextRun({ text: ` (${Math.round(block.confidence * 100)}%)`, color: '94A3B8', size: 18 }));
+                runs.push(new TextRun({ text: ` (${Math.round(block.confidence)}%)`, color: '94A3B8', size: 18 }));
             }
             children.push(new Paragraph({ children: runs, spacing: { after: 120 } }));
         }
@@ -297,7 +297,7 @@ async function exportCSV(
         }
         for (const block of scan.paragraphData.blocks) {
             if (includeConfidence) {
-                lines.push(`${csvEscape(block.text)},${Math.round(block.confidence * 100)}%`);
+                lines.push(`${csvEscape(block.text)},${Math.round(block.confidence)}%`);
             } else {
                 lines.push(csvEscape(block.text));
             }
