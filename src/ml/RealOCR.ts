@@ -45,6 +45,24 @@ function detectLanguage(text: string): 'english' | 'hindi' | 'mixed' | 'unknown'
     return 'unknown';
 }
 
+/** Fix common OCR digit/letter confusions in numeric contexts.
+ *  O→0, l→1, S→5, B→8 when surrounded by digits */
+function fixDigitConfusions(text: string): string {
+    // Only apply to tokens that are mostly digits
+    return text.replace(/\b([\d\s.,\-/OlSB]+)\b/g, (match) => {
+        const digitCount = (match.match(/[\d]/g) || []).length;
+        const totalAlpha = (match.match(/[OlSB]/g) || []).length;
+        if (digitCount > 0 && totalAlpha > 0 && digitCount >= totalAlpha) {
+            return match
+                .replace(/O/g, '0')
+                .replace(/l/g, '1')
+                .replace(/S(?=\d)|(?<=\d)S/g, '5')
+                .replace(/B(?=\d)|(?<=\d)B/g, '8');
+        }
+        return match;
+    });
+}
+
 /** Estimate per-block confidence from line/word density heuristics.
  *  ML Kit on-device doesn't expose per-block confidence, so we estimate. */
 function estimateBlockConfidence(block: TextBlock): number {
@@ -122,13 +140,13 @@ export async function recognizeText(imageUri: string): Promise<RealOCRResult> {
     // ── Build structured blocks ──────────────────────────────
     const blocks: OCRBlock[] = result.blocks.map((block) => {
         const lines: OCRLine[] = block.lines.map((line) => ({
-            text: line.text,
+            text: fixDigitConfusions(line.text),
             boundingBox: frameToBBox(line.frame),
-            words: line.elements.map((el) => el.text),
+            words: line.elements.map((el) => fixDigitConfusions(el.text)),
         }));
 
         return {
-            text: block.text,
+            text: fixDigitConfusions(block.text),
             confidence: Math.round(estimateBlockConfidence(block) * 100) / 100,
             language: detectLanguage(block.text),
             boundingBox: frameToBBox(block.frame),

@@ -8,6 +8,7 @@ import { MLScanResult, ParagraphBlock, TableStructure } from './types';
 import { logModelStatus, isModelAvailable } from './ModelManager';
 import { recognizeText, RealOCRResult } from './RealOCR';
 import { parseTableFromOCR, detectDocumentLayout } from './TableParser';
+import { imageFidelityEngine, FidelityLayer } from './ImageFidelityEngine';
 
 // ─── Inline ImageManipulator stub ────────────────────────────────
 // react-native-image-manipulator is not installed; use Image.getSize
@@ -110,18 +111,37 @@ export async function processImage(
 
     if (docTypeHint && docTypeHint !== 'auto' && ['table', 'paragraph', 'form', 'mixed'].includes(docTypeHint)) {
         docType = docTypeHint as MLScanResult['docType'];
-        console.log(`[MLPipeline] Step 3: Using user hint → ${docType}`);
+        console.log(`[MLPipeline] Step 3: User chip selection (highest priority) → ${docType}`);
     } else {
-        // Use OCR-based layout detection
-        const layoutGuess = detectDocumentLayout(ocrResult.blocks);
-        docType = layoutGuess;
+        // Auto detection: first try fidelity-based analysis, then fall back to layout heuristics
+        let fidelityGuess: MLScanResult['docType'] | null = null;
+        try {
+            const tempFidelity = await imageFidelityEngine.analyze(enhancedUri, ocrResult);
+            const maxCol = Math.max(0, ...tempFidelity.textBlocks.map(b => b.columnIndex));
+            const maxRow = Math.max(0, ...tempFidelity.textBlocks.map(b => b.rowIndex));
+            if (maxCol >= 2 && maxRow >= 3) {
+                fidelityGuess = 'table';
+                console.log(`[MLPipeline] Step 3: Fidelity auto-detect → TABLE (${maxCol + 1} cols, ${maxRow + 1} rows)`);
+            } else {
+                fidelityGuess = 'paragraph';
+                console.log(`[MLPipeline] Step 3: Fidelity auto-detect → PARAGRAPH (${maxCol + 1} cols, ${maxRow + 1} rows)`);
+            }
+        } catch {
+            console.warn('[MLPipeline] Step 3: Fidelity auto-detect failed, using layout heuristics');
+        }
 
-        // Also check aspect ratio as a secondary signal
-        const aspectRatio = imgWidth / imgHeight;
-        if (aspectRatio > 1.5 && layoutGuess === 'paragraph') {
-            // Very wide image is more likely a table/form
-            docType = 'table';
-            console.log(`[MLPipeline] Step 3: Overriding to table (wide image AR=${aspectRatio.toFixed(2)})`);
+        if (fidelityGuess) {
+            docType = fidelityGuess;
+        } else {
+            // Fallback: OCR-based layout detection
+            const layoutGuess = detectDocumentLayout(ocrResult.blocks);
+            docType = layoutGuess;
+
+            const aspectRatio = imgWidth / imgHeight;
+            if (aspectRatio > 1.5 && layoutGuess === 'paragraph') {
+                docType = 'table';
+                console.log(`[MLPipeline] Step 3: Overriding to table (wide image AR=${aspectRatio.toFixed(2)})`);
+            }
         }
 
         if (isModelAvailable('document_classifier')) {
@@ -129,14 +149,28 @@ export async function processImage(
         }
     }
 
-    // ── Step 4: Structure Extraction ────────────────────────────
+    // ── Step 4: Structure Extraction (Fidelity Engine) ────────────────────
     let tableData: TableStructure | undefined;
     let paragraphData: ParagraphBlock[] | undefined;
+    let fidelityLayer: FidelityLayer | undefined;
+
+    // Run fidelity engine for exact position mapping
+    try {
+        fidelityLayer = await imageFidelityEngine.analyze(enhancedUri, ocrResult);
+        console.log(`[MLPipeline] Step 4: FidelityEngine → ${fidelityLayer.textBlocks.length} positioned blocks`);
+    } catch (fidelityError) {
+        console.warn('[MLPipeline] FidelityEngine failed, falling back to TableParser:', fidelityError);
+    }
 
     if (docType === 'table' || docType === 'form') {
-        // TABLE path: parse OCR into structured grid
+        // TABLE path: use fidelity engine if available, else fallback to TableParser
         try {
-            tableData = parseTableFromOCR(ocrResult.blocks, imgWidth, imgHeight);
+            if (fidelityLayer) {
+                tableData = imageFidelityEngine.toTableStructure(fidelityLayer);
+                console.log(`[MLPipeline] Step 4: Fidelity table → ${tableData.rows}×${tableData.cols} grid`);
+            } else {
+                tableData = parseTableFromOCR(ocrResult.blocks, imgWidth, imgHeight);
+            }
 
             if (isModelAvailable('table_detector')) {
                 console.log(`[MLPipeline] Step 4: table_detector scored ${tableData.rows}×${tableData.cols} grid`);
@@ -148,9 +182,12 @@ export async function processImage(
     }
 
     if (docType === 'paragraph' || docType === 'mixed' || !tableData) {
-        // PARAGRAPH path: map OCR blocks → ParagraphBlocks
+        // PARAGRAPH path: use fidelity engine if available
         try {
-            if (ocrResult.blocks.length > 0) {
+            if (fidelityLayer) {
+                paragraphData = imageFidelityEngine.toParagraphBlocks(fidelityLayer);
+                console.log(`[MLPipeline] Step 4: Fidelity paragraphs → ${paragraphData.length} blocks`);
+            } else if (ocrResult.blocks.length > 0) {
                 paragraphData = ocrResult.blocks.map((block) => ({
                     text: block.text,
                     confidence: block.confidence,
@@ -223,6 +260,7 @@ export async function processImage(
 
     if (tableData) result.tableData = tableData;
     if (paragraphData) result.paragraphData = paragraphData;
+    if (fidelityLayer) result.fidelityLayer = fidelityLayer;
 
     console.log(
         `[MLPipeline] ✅ Complete: ${docType} | ${overallConfidence}% | ${processingTimeMs}ms | ` +

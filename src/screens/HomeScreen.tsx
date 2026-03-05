@@ -23,7 +23,7 @@ import FAB from '../components/common/FAB';
 import { ROUTES } from '../navigation/routes';
 import { HomeStackParamList } from '../navigation/MainNavigator';
 import { Scan } from '../models/Scan';
-import { getRecentScans, getScanStats } from '../services/storage/ScanStorage';
+import { getRecentScans, getScanStats, getAllScans } from '../services/storage/ScanStorage';
 import { formatDate } from '../utils/formatters';
 import { getConfidenceColor, getConfidenceBgColor, formatConfidence } from '../utils/confidence';
 
@@ -91,6 +91,7 @@ const HomeScreen: React.FC = () => {
 
     const [recentScans, setRecentScans] = useState<Scan[]>([]);
     const [stats, setStats] = useState({ total: 0, thisWeek: 0, exports: 0 });
+    const [weeklyData, setWeeklyData] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -98,10 +99,27 @@ const HomeScreen: React.FC = () => {
             setRecentScans(loadedScans);
             const loadedStats = await getScanStats();
             setStats(loadedStats);
+
+            // Weekly bar chart data (Mon-Sun)
+            const allScans = await getAllScans();
+            const now = new Date();
+            const day = now.getDay(); // 0=Sun, 1=Mon ...
+            const mondayOffset = day === 0 ? -6 : 1 - day;
+            const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+            monday.setHours(0, 0, 0, 0);
+
+            const counts = [0, 0, 0, 0, 0, 0, 0];
+            for (const s of allScans) {
+                const d = new Date(s.createdAt);
+                if (d >= monday) {
+                    const diff = Math.floor((d.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diff >= 0 && diff < 7) counts[diff]++;
+                }
+            }
+            setWeeklyData(counts);
         };
 
         const unsubscribe = navigation.addListener('focus', loadData);
-        // Load once immediately
         loadData();
 
         return unsubscribe;
@@ -196,6 +214,63 @@ const HomeScreen: React.FC = () => {
                         </Text>
                     </View>
                 )}
+
+                {/* FIX 7 — Tips Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: colors.text1 }]}>Tips</Text>
+                </View>
+                <FlatList
+                    data={[
+                        { icon: '📸', title: 'Good lighting', desc: 'Use natural or even light for best results' },
+                        { icon: '📐', title: 'Flat surface', desc: 'Place documents on a flat surface' },
+                        { icon: '🔍', title: 'Fill the frame', desc: 'Document should fill the camera view' },
+                        { icon: '✋', title: 'Hold steady', desc: 'Keep your hand steady while capturing' },
+                    ]}
+                    keyExtractor={(_, i) => `tip-${i}`}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tipsList}
+                    renderItem={({ item }) => (
+                        <View style={[styles.tipCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Text style={styles.tipIcon}>{item.icon}</Text>
+                            <Text style={[styles.tipTitle, { color: colors.text1 }]}>{item.title}</Text>
+                            <Text style={[styles.tipDesc, { color: colors.text2 }]}>{item.desc}</Text>
+                        </View>
+                    )}
+                />
+
+                {/* FIX 7 — Weekly Activity Bar Chart */}
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: colors.text1 }]}>This Week</Text>
+                </View>
+                <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.chartBars}>
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, i) => {
+                            const maxVal = Math.max(1, ...weeklyData);
+                            const barHeight = Math.max(8, (weeklyData[i] / maxVal) * 80);
+                            const today = new Date();
+                            const dayOfWeek = today.getDay();
+                            const todayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                            const isToday = i === todayIndex;
+
+                            return (
+                                <View key={label} style={styles.chartBarCol}>
+                                    <Text style={[styles.chartBarValue, { color: colors.text2 }]}>{weeklyData[i]}</Text>
+                                    <View
+                                        style={[
+                                            styles.chartBar,
+                                            {
+                                                height: barHeight,
+                                                backgroundColor: isToday ? '#2563EB' : '#1E3A5F',
+                                            },
+                                        ]}
+                                    />
+                                    <Text style={[styles.chartBarLabel, { color: isToday ? '#2563EB' : colors.text2 }]}>{label}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
             </ScrollView>
 
             {/* FAB */}
@@ -251,6 +326,21 @@ const styles = StyleSheet.create({
     emptyIcon: { fontSize: 48, marginBottom: spacing.md },
     emptyTitle: { fontSize: 16, fontWeight: '600', fontFamily: typography.h4.fontFamily },
     emptySubtitle: { fontSize: 14, fontWeight: '400', textAlign: 'center', marginTop: spacing.sm, fontFamily: typography.body.fontFamily },
+
+    // Tips
+    tipsList: { gap: spacing.md, paddingRight: spacing.base },
+    tipCard: { width: 140, borderRadius: radius.card, borderWidth: 1, padding: spacing.base, ...shadows.sm },
+    tipIcon: { fontSize: 28, marginBottom: spacing.sm },
+    tipTitle: { fontSize: 13, fontWeight: '600', fontFamily: typography.h4.fontFamily },
+    tipDesc: { fontSize: 11, marginTop: 4, lineHeight: 15, fontFamily: typography.caption.fontFamily },
+
+    // Weekly Chart
+    chartCard: { borderRadius: radius.card, borderWidth: 1, padding: spacing.base, ...shadows.sm },
+    chartBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 120 },
+    chartBarCol: { alignItems: 'center', flex: 1 },
+    chartBarValue: { fontSize: 10, fontWeight: '600', marginBottom: 4, fontFamily: typography.caption.fontFamily },
+    chartBar: { width: 20, borderRadius: 4 },
+    chartBarLabel: { fontSize: 10, fontWeight: '500', marginTop: 6, fontFamily: typography.caption.fontFamily },
 });
 
 export default HomeScreen;

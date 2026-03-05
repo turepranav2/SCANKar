@@ -21,8 +21,34 @@ import {
 } from 'docx';
 import { Scan } from '../models/Scan';
 import { ExportFormat } from '../models/ExportPayload';
+import { FidelityLayer, FidelityTextBlock } from '../ml/ImageFidelityEngine';
 
 const EXPORT_DIR = `${RNFS.CachesDirectoryPath}/SCANKar_Exports`;
+
+// ── Fidelity helpers ─────────────────────────────────────────────
+
+function groupFidelityByRow(blocks: FidelityTextBlock[]): Map<number, FidelityTextBlock[]> {
+    const map = new Map<number, FidelityTextBlock[]>();
+    for (const b of blocks) {
+        if (!map.has(b.rowIndex)) map.set(b.rowIndex, []);
+        map.get(b.rowIndex)!.push(b);
+    }
+    return map;
+}
+
+function buildFidelityGrid(layer: FidelityLayer): string[][] {
+    const maxRow = Math.max(0, ...layer.textBlocks.map(b => b.rowIndex));
+    const maxCol = Math.max(0, ...layer.textBlocks.map(b => b.columnIndex));
+    const grid: string[][] = Array.from({ length: maxRow + 1 }, () => Array(maxCol + 1).fill(''));
+    for (const block of layer.textBlocks) {
+        if (grid[block.rowIndex][block.columnIndex]) {
+            grid[block.rowIndex][block.columnIndex] += ' ' + block.text;
+        } else {
+            grid[block.rowIndex][block.columnIndex] = block.text;
+        }
+    }
+    return grid;
+}
 
 async function ensureDir(): Promise<void> {
     const exists = await RNFS.exists(EXPORT_DIR);
@@ -39,12 +65,30 @@ function sanitizeFilename(name: string): string {
 
 async function exportExcel(
     scan: Scan,
-    includeConfidence: boolean,
+    _includeConfidence: boolean,
 ): Promise<string> {
     await ensureDir();
     const wb = XLSX.utils.book_new();
+    const layer = (scan as any).fidelityLayer as FidelityLayer | undefined;
 
-    if (scan.tableData) {
+    if (layer && layer.textBlocks.length > 0) {
+        // Fidelity-based export: exact row/col grid from OCR positions
+        const grid = buildFidelityGrid(layer);
+        const ws = XLSX.utils.aoa_to_sheet(grid);
+
+        // Apply styling hints
+        for (const block of layer.textBlocks) {
+            const cellRef = XLSX.utils.encode_cell({ r: block.rowIndex, c: block.columnIndex });
+            if (ws[cellRef]) {
+                ws[cellRef].s = {
+                    font: { bold: block.isBold, sz: Math.round(block.fontSize * 0.75) },
+                    alignment: { horizontal: block.alignment },
+                };
+            }
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Scan Data');
+    } else if (scan.tableData) {
         const rows: string[][] = [];
 
         // Headers
@@ -63,29 +107,10 @@ async function exportExcel(
             }
         }
 
-        if (includeConfidence && scan.tableData.headers) {
-            rows.push([]);
-            rows.push(['--- Confidence Scores ---']);
-            if (scan.tableData.rows) {
-                for (const row of scan.tableData.rows) {
-                    rows.push(row.map(cell => `${Math.round(cell.confidence)}%`));
-                }
-            }
-        }
-
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, 'Scan Data');
     } else if (scan.paragraphData) {
-        const rows = scan.paragraphData.blocks.map(b => {
-            const row: string[] = [b.text];
-            if (includeConfidence) {
-                row.push(`${Math.round(b.confidence)}%`);
-            }
-            return row;
-        });
-        if (includeConfidence) {
-            rows.unshift(['Text', 'Confidence']);
-        }
+        const rows = scan.paragraphData.blocks.map(b => [b.text]);
         const ws = XLSX.utils.aoa_to_sheet(rows);
         XLSX.utils.book_append_sheet(wb, ws, 'Text Data');
     }
@@ -100,11 +125,46 @@ async function exportExcel(
 
 async function exportPDF(
     scan: Scan,
-    includeConfidence: boolean,
+    _includeConfidence: boolean,
 ): Promise<string> {
     await ensureDir();
+    const layer = (scan as any).fidelityLayer as FidelityLayer | undefined;
 
-    let html = `<html><head><style>
+    let html: string;
+
+    if (layer && layer.textBlocks.length > 0) {
+        // Fidelity-based PDF: text at EXACT positions from OCR bounding boxes
+        html = `<html><head><style>
+            body {
+                margin: 0; padding: 0;
+                background: ${escapeHtml(layer.backgroundColor)};
+                width: ${layer.width}px;
+                height: ${layer.height}px;
+                position: relative;
+                font-family: Arial, sans-serif;
+            }
+            .text-block {
+                position: absolute;
+                white-space: nowrap;
+                overflow: visible;
+            }
+        </style></head>
+        <body>
+        ${layer.textBlocks.map(block => `
+            <div class="text-block" style="
+                left: ${block.x}px;
+                top: ${block.y}px;
+                width: ${block.width}px;
+                height: ${block.height}px;
+                font-size: ${block.fontSize}px;
+                font-weight: ${block.isBold ? 'bold' : 'normal'};
+                text-align: ${block.alignment};
+                color: ${escapeHtml(block.color)};
+            ">${escapeHtml(block.text)}</div>
+        `).join('')}
+        </body></html>`;
+    } else {
+        html = `<html><head><style>
         body { font-family: Arial, sans-serif; margin: 24px; color: #1E293B; }
         h1 { font-size: 20px; color: #0F172A; margin-bottom: 4px; }
         .meta { font-size: 11px; color: #64748B; margin-bottom: 16px; }
@@ -112,54 +172,46 @@ async function exportPDF(
         th, td { border: 1px solid #CBD5E1; padding: 8px 10px; font-size: 13px; text-align: left; }
         th { background: #EFF6FF; font-weight: 700; }
         .block { margin-bottom: 12px; line-height: 1.6; font-size: 14px; }
-        .conf { font-size: 10px; color: #94A3B8; }
     </style></head><body>`;
 
-    html += `<h1>${scan.name}</h1>`;
-    html += `<div class="meta">Type: ${scan.documentType} | Confidence: ${scan.overallConfidence}% | ${scan.createdAt}</div>`;
+        html += `<h1>${escapeHtml(scan.name)}</h1>`;
+        html += `<div class="meta">Type: ${scan.documentType} | ${scan.createdAt}</div>`;
 
-    if (scan.tableData) {
-        html += '<table>';
-        if (scan.tableData.headers && scan.tableData.headers.length > 0) {
-            html += '<tr>';
-            for (const h of scan.tableData.headers) {
-                html += `<th>${escapeHtml(h.value)}</th>`;
-            }
-            html += '</tr>';
-        }
-        if (scan.tableData.rows) {
-            for (const row of scan.tableData.rows) {
+        if (scan.tableData) {
+            html += '<table>';
+            if (scan.tableData.headers && scan.tableData.headers.length > 0) {
                 html += '<tr>';
-                for (const cell of row) {
-                    html += `<td>${escapeHtml(cell.value)}`;
-                    if (includeConfidence) {
-                        html += ` <span class="conf">(${Math.round(cell.confidence)}%)</span>`;
+                for (const h of scan.tableData.headers) {
+                    html += `<th>${escapeHtml(h.value)}</th>`;
+                }
+                html += '</tr>';
+            }
+            if (scan.tableData.rows) {
+                for (const row of scan.tableData.rows) {
+                    html += '<tr>';
+                    for (const cell of row) {
+                        html += `<td>${escapeHtml(cell.value)}</td>`;
                     }
-                    html += '</td>';
+                    html += '</tr>';
                 }
-                html += '</tr>';
+            } else if (scan.tableData.cells) {
+                for (const row of scan.tableData.cells) {
+                    html += '<tr>';
+                    for (const cell of row) {
+                        html += `<td>${escapeHtml(cell.text)}</td>`;
+                    }
+                    html += '</tr>';
+                }
             }
-        } else if (scan.tableData.cells) {
-            for (const row of scan.tableData.cells) {
-                html += '<tr>';
-                for (const cell of row) {
-                    html += `<td>${escapeHtml(cell.text)}</td>`;
-                }
-                html += '</tr>';
+            html += '</table>';
+        } else if (scan.paragraphData) {
+            for (const block of scan.paragraphData.blocks) {
+                html += `<div class="block">${escapeHtml(block.text)}</div>`;
             }
         }
-        html += '</table>';
-    } else if (scan.paragraphData) {
-        for (const block of scan.paragraphData.blocks) {
-            html += `<div class="block">${escapeHtml(block.text)}`;
-            if (includeConfidence) {
-                html += ` <span class="conf">(${Math.round(block.confidence)}%)</span>`;
-            }
-            html += '</div>';
-        }
-    }
 
-    html += '</body></html>';
+        html += '</body></html>';
+    }
 
     // Use react-native-html-to-pdf
     const pdfResult = await generatePDFFile({
@@ -179,9 +231,10 @@ async function exportPDF(
 
 async function exportWord(
     scan: Scan,
-    includeConfidence: boolean,
+    _includeConfidence: boolean,
 ): Promise<string> {
     await ensureDir();
+    const layer = (scan as any).fidelityLayer as FidelityLayer | undefined;
 
     const children: (Paragraph | Table)[] = [];
 
@@ -198,7 +251,7 @@ async function exportWord(
         new Paragraph({
             children: [
                 new TextRun({
-                    text: `Type: ${scan.documentType} | Confidence: ${scan.overallConfidence}% | ${scan.createdAt}`,
+                    text: `Type: ${scan.documentType} | ${scan.createdAt}`,
                     size: 18,
                     color: '64748B',
                 }),
@@ -207,7 +260,36 @@ async function exportWord(
         }),
     );
 
-    if (scan.tableData) {
+    if (layer && layer.textBlocks.length > 0) {
+        // Fidelity-based: build table from exact grid
+        const grid = buildFidelityGrid(layer);
+        const maxCol = Math.max(0, ...layer.textBlocks.map(b => b.columnIndex));
+
+        const tableRows: TableRow[] = grid.map((rowCells, ri) =>
+            new TableRow({
+                children: rowCells.map((cellText, ci) => {
+                    const fBlock = layer.textBlocks.find(b => b.rowIndex === ri && b.columnIndex === ci);
+                    return new DocxCell({
+                        children: [new Paragraph({
+                            children: [new TextRun({
+                                text: cellText,
+                                bold: fBlock?.isBold || ri === 0,
+                                size: fBlock ? Math.round(fBlock.fontSize * 1.5) : 22,
+                            })],
+                            alignment: fBlock?.alignment === 'center' ? AlignmentType.CENTER
+                                : fBlock?.alignment === 'right' ? AlignmentType.RIGHT
+                                    : AlignmentType.LEFT,
+                        })],
+                        width: { size: Math.round(10000 / (maxCol + 1)), type: WidthType.DXA },
+                    });
+                }),
+            }),
+        );
+
+        if (tableRows.length > 0) {
+            children.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+        }
+    } else if (scan.tableData) {
         const tableRows: TableRow[] = [];
 
         // Header row
@@ -252,9 +334,6 @@ async function exportWord(
     } else if (scan.paragraphData) {
         for (const block of scan.paragraphData.blocks) {
             const runs: TextRun[] = [new TextRun({ text: block.text })];
-            if (includeConfidence) {
-                runs.push(new TextRun({ text: ` (${Math.round(block.confidence)}%)`, color: '94A3B8', size: 18 }));
-            }
             children.push(new Paragraph({ children: runs, spacing: { after: 120 } }));
         }
     }
@@ -273,12 +352,18 @@ async function exportWord(
 
 async function exportCSV(
     scan: Scan,
-    includeConfidence: boolean,
+    _includeConfidence: boolean,
 ): Promise<string> {
     await ensureDir();
     const lines: string[] = [];
+    const layer = (scan as any).fidelityLayer as FidelityLayer | undefined;
 
-    if (scan.tableData) {
+    if (layer && layer.textBlocks.length > 0) {
+        const grid = buildFidelityGrid(layer);
+        for (const row of grid) {
+            lines.push(row.map(cell => csvEscape(cell)).join(','));
+        }
+    } else if (scan.tableData) {
         if (scan.tableData.headers) {
             lines.push(scan.tableData.headers.map(h => csvEscape(h.value)).join(','));
         }
@@ -292,15 +377,8 @@ async function exportCSV(
             }
         }
     } else if (scan.paragraphData) {
-        if (includeConfidence) {
-            lines.push('"Text","Confidence"');
-        }
         for (const block of scan.paragraphData.blocks) {
-            if (includeConfidence) {
-                lines.push(`${csvEscape(block.text)},${Math.round(block.confidence)}%`);
-            } else {
-                lines.push(csvEscape(block.text));
-            }
+            lines.push(csvEscape(block.text));
         }
     }
 
@@ -313,33 +391,44 @@ async function exportCSV(
 
 async function exportJSON(
     scan: Scan,
-    includeConfidence: boolean,
+    _includeConfidence: boolean,
 ): Promise<string> {
     await ensureDir();
+    const layer = (scan as any).fidelityLayer as FidelityLayer | undefined;
 
     const payload: Record<string, unknown> = {
         version: '1.0',
         scanId: scan.id,
         scanDate: scan.createdAt,
         documentType: scan.documentType,
-        overallConfidence: scan.overallConfidence,
         language: scan.languageDetected,
     };
 
-    if (scan.tableData) {
+    if (layer && layer.textBlocks.length > 0) {
+        // Fidelity-based: include positioned blocks
+        payload.data = {
+            imageWidth: layer.width,
+            imageHeight: layer.height,
+            blocks: layer.textBlocks.map(b => ({
+                text: b.text,
+                x: b.x,
+                y: b.y,
+                width: b.width,
+                height: b.height,
+                row: b.rowIndex,
+                col: b.columnIndex,
+                isBold: b.isBold,
+                alignment: b.alignment,
+            })),
+        };
+    } else if (scan.tableData) {
         const tableExport: Record<string, unknown> = {};
         if (scan.tableData.headers) {
             tableExport.headers = scan.tableData.headers.map(h => h.value);
         }
         if (scan.tableData.rows) {
             tableExport.rows = scan.tableData.rows.map(row =>
-                row.map(cell => {
-                    const cellOut: Record<string, unknown> = { value: cell.value };
-                    if (includeConfidence) {
-                        cellOut.confidence = cell.confidence;
-                    }
-                    return cellOut;
-                }),
+                row.map(cell => ({ value: cell.value })),
             );
         }
         payload.data = tableExport;
@@ -347,9 +436,6 @@ async function exportJSON(
         payload.data = {
             blocks: scan.paragraphData.blocks.map(b => {
                 const out: Record<string, unknown> = { text: b.text };
-                if (includeConfidence) {
-                    out.confidence = b.confidence;
-                }
                 if (b.language) {
                     out.language = b.language;
                 }
@@ -385,8 +471,14 @@ function csvEscape(str: string): string {
 export async function exportScan(
     scan: Scan,
     format: ExportFormat,
-    options: { includeConfidence: boolean; includeOriginalImage: boolean },
+    options: { includeConfidence: boolean; includeOriginalImage: boolean; customFileName?: string },
 ): Promise<string> {
+    // If a custom file name is provided, temporarily override scan.name
+    const originalName = scan.name;
+    if (options.customFileName) {
+        (scan as any).name = options.customFileName;
+    }
+
     let filePath: string;
 
     switch (format) {
@@ -409,7 +501,26 @@ export async function exportScan(
             throw new Error(`Unsupported export format: ${format}`);
     }
 
+    // Restore original name
+    if (options.customFileName) {
+        (scan as any).name = originalName;
+    }
+
     return filePath;
+}
+
+/**
+ * Copy exported file to Downloads/SCANKar/ for permanent storage.
+ */
+export async function saveToDownloads(sourcePath: string, fileName: string): Promise<string> {
+    const downloadsDir = `${RNFS.DownloadDirectoryPath}/SCANKar`;
+    const exists = await RNFS.exists(downloadsDir);
+    if (!exists) {
+        await RNFS.mkdir(downloadsDir);
+    }
+    const destPath = `${downloadsDir}/${fileName}`;
+    await RNFS.copyFile(sourcePath, destPath);
+    return destPath;
 }
 
 export async function shareFile(filePath: string, mimeType: string): Promise<void> {

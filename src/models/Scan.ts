@@ -36,6 +36,7 @@ export interface Scan {
     // Extracted data
     tableData?: import('./TableData').TableData;
     paragraphData?: import('./ParagraphData').ParagraphData;
+    fidelityLayer?: import('../ml/ImageFidelityEngine').FidelityLayer;
 
     // Processing metadata
     processingTimeMs: number;

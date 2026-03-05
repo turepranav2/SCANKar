@@ -65,6 +65,7 @@ export interface MLScanResult {
     docType: 'table' | 'paragraph' | 'form' | 'mixed';
     tableData?: TableStructure;
     paragraphData?: ParagraphBlock[];
+    fidelityLayer?: import('./ImageFidelityEngine').FidelityLayer;
     overallConfidence: number;
     processingTimeMs: number;
 }

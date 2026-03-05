@@ -21,6 +21,7 @@ import { spacing } from '../theme/spacing';
 import { DocumentType, Scan, ProcessingPhase } from '../models/Scan';
 import { saveScan } from '../services/storage/ScanStorage';
 import { MLPipeline } from '../ml';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ProcessRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.PROCESSING>;
@@ -123,6 +124,11 @@ const ProcessingScreen: React.FC = () => {
                     editHistory: [],
                 };
 
+                // Store fidelity layer if available
+                if (result.fidelityLayer) {
+                    (newScan as any).fidelityLayer = result.fidelityLayer;
+                }
+
                 // Map ML result to Scan model
                 if (detectedType === 'paragraph') {
                     newScan.paragraphData = {
@@ -175,6 +181,32 @@ const ProcessingScreen: React.FC = () => {
                 Animated.timing(progressAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
 
                 await saveScan(newScan);
+
+                // FIX 5 — Store confidence separately (not in exports)
+                const confData: Record<string, number> = {};
+                if (newScan.paragraphData) {
+                    for (const block of newScan.paragraphData.blocks) {
+                        confData[block.id] = block.confidence;
+                    }
+                }
+                if (newScan.tableData) {
+                    if (newScan.tableData.headers) {
+                        for (const h of newScan.tableData.headers) {
+                            confData[h.id] = h.confidence;
+                        }
+                    }
+                    if (newScan.tableData.rows) {
+                        for (const row of newScan.tableData.rows) {
+                            for (const cell of row) {
+                                confData[cell.id] = cell.confidence;
+                            }
+                        }
+                    }
+                }
+                await AsyncStorage.setItem(
+                    `scankar_confidence_${newScan.id}`,
+                    JSON.stringify(confData),
+                );
 
                 await new Promise<void>(r => setTimeout(() => r(), 600));
                 if (!isMounted) return;
