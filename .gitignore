@@ -5,6 +5,8 @@ npm-debug.log*
 # React Native
 .gradle/
 android/app/build/
+android/app/.cxx/
+android/build/
 android/.gradle/
 android/local.properties
 ios/Pods/
@@ -30,3 +32,4 @@ Thumbs.db
 # Temp
 *.log
 tmp/
+build-release.log
