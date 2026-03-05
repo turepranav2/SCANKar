@@ -1,7 +1,7 @@
 // SCANKar — Export Screen (Screen 09)
-// Format selection, options, preview, and export execution
+// Format selection, options, live preview, and real export
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -24,6 +24,9 @@ import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { EXPORT_FORMATS } from '../constants/config';
 import { ExportFormat } from '../models/ExportPayload';
+import { Scan } from '../models/Scan';
+import { getScan } from '../services/storage/ScanStorage';
+import { exportScan, shareFile, getMimeType } from '../services/ExportService';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type ExportRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.EXPORT>;
@@ -40,32 +43,163 @@ const ExportScreen: React.FC = () => {
     const [autoOpenFile, setAutoOpenFile] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [exportComplete, setExportComplete] = useState(false);
+    const [scan, setScan] = useState<Scan | null>(null);
 
     const selectedFormatInfo = EXPORT_FORMATS.find(f => f.id === selectedFormat);
 
+    // Load scan data for live preview
+    useEffect(() => {
+        const load = async () => {
+            const data = await getScan(route.params.scanId);
+            if (data) { setScan(data); }
+        };
+        load();
+    }, [route.params.scanId]);
+
     const handleExport = useCallback(async () => {
+        if (!scan) {
+            Alert.alert('Error', 'Scan data not loaded');
+            return;
+        }
         setIsExporting(true);
 
-        // Simulate export processing
-        await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+        try {
+            const filePath = await exportScan(scan, selectedFormat, {
+                includeConfidence,
+                includeOriginalImage,
+            });
 
-        setIsExporting(false);
-        setExportComplete(true);
-        updateStats({ totalExports: stats.totalExports + 1 });
+            setIsExporting(false);
+            setExportComplete(true);
+            updateStats({ totalExports: stats.totalExports + 1 });
 
-        // Persist export count to AsyncStorage so Home screen picks it up
-        const currentCount = parseInt((await AsyncStorage.getItem('scankar_exports_count')) || '0', 10);
-        await AsyncStorage.setItem('scankar_exports_count', String(currentCount + 1));
+            const currentCount = parseInt((await AsyncStorage.getItem('scankar_exports_count')) || '0', 10);
+            await AsyncStorage.setItem('scankar_exports_count', String(currentCount + 1));
 
-        Alert.alert(
-            'Export Complete ✓',
-            `File saved as ${selectedFormatInfo?.name} format.\n\nIn production, this will open the system share sheet or save to device storage.`,
-            [
-                { text: 'Share', onPress: () => { } },
-                { text: 'Done', onPress: () => navigation.goBack() },
-            ]
+            Alert.alert(
+                'Export Complete ✓',
+                `File saved to:\n${filePath}`,
+                [
+                    {
+                        text: 'Share',
+                        onPress: async () => {
+                            try {
+                                await shareFile(filePath, getMimeType(selectedFormat));
+                            } catch (_e) { /* user cancelled share */ }
+                        },
+                    },
+                    { text: 'Done', onPress: () => navigation.goBack() },
+                ],
+            );
+        } catch (error) {
+            setIsExporting(false);
+            Alert.alert('Export Failed', String(error));
+        }
+    }, [scan, selectedFormat, includeConfidence, includeOriginalImage, navigation, updateStats, stats.totalExports]);
+
+    // ── Live Preview Renderers ─────────────────────────────
+
+    const renderTablePreview = () => {
+        if (!scan?.tableData) { return <Text style={[styles.previewEmpty, { color: colors.text2 }]}>No table data</Text>; }
+        const headers = scan.tableData.headers || [];
+        const rows = scan.tableData.rows || [];
+        return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View>
+                    {headers.length > 0 && (
+                        <View style={styles.previewTableRow}>
+                            {headers.map((h, i) => (
+                                <View key={i} style={[styles.previewTh, { backgroundColor: colors.primarySubtle, borderColor: colors.border }]}>
+                                    <Text style={[styles.previewThText, { color: colors.text1 }]} numberOfLines={1}>{h.value}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {rows.slice(0, 3).map((row, ri) => (
+                        <View key={ri} style={styles.previewTableRow}>
+                            {row.map((cell, ci) => (
+                                <View key={ci} style={[styles.previewTd, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                    <Text style={[styles.previewTdText, { color: colors.text1 }]} numberOfLines={1}>{cell.value}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ))}
+                    {rows.length > 3 && <Text style={[styles.previewMore, { color: colors.text2 }]}>+{rows.length - 3} more rows...</Text>}
+                </View>
+            </ScrollView>
         );
-    }, [selectedFormat, selectedFormatInfo, navigation, updateStats, stats.totalExports]);
+    };
+
+    const renderParagraphPreview = () => {
+        if (!scan?.paragraphData) { return <Text style={[styles.previewEmpty, { color: colors.text2 }]}>No text data</Text>; }
+        const blocks = scan.paragraphData.blocks.slice(0, 4);
+        return (
+            <View>
+                {blocks.map((b, i) => (
+                    <Text key={i} style={[styles.previewBlockText, { color: colors.text1 }]} numberOfLines={2}>
+                        {b.text}
+                    </Text>
+                ))}
+                {scan.paragraphData.blocks.length > 4 && (
+                    <Text style={[styles.previewMore, { color: colors.text2 }]}>+{scan.paragraphData.blocks.length - 4} more blocks...</Text>
+                )}
+            </View>
+        );
+    };
+
+    const renderJsonPreview = () => {
+        if (!scan) { return null; }
+        const preview = {
+            documentType: scan.documentType,
+            confidence: scan.overallConfidence,
+            blocks: scan.paragraphData ? scan.paragraphData.blocks.length : undefined,
+            rows: scan.tableData?.rows?.length,
+        };
+        return (
+            <Text style={[styles.previewJson, { color: '#22C55E', backgroundColor: '#0F172A' }]}>
+                {JSON.stringify(preview, null, 2)}
+            </Text>
+        );
+    };
+
+    const renderCsvPreview = () => {
+        if (!scan) { return null; }
+        let lines: string[] = [];
+        if (scan.tableData) {
+            if (scan.tableData.headers) {
+                lines.push(scan.tableData.headers.map(h => h.value).join(', '));
+            }
+            if (scan.tableData.rows) {
+                lines = lines.concat(scan.tableData.rows.slice(0, 3).map(row => row.map(c => c.value).join(', ')));
+            }
+        } else if (scan.paragraphData) {
+            lines = scan.paragraphData.blocks.slice(0, 3).map(b => b.text.substring(0, 60) + (b.text.length > 60 ? '...' : ''));
+        }
+        return (
+            <Text style={[styles.previewCsv, { color: colors.text1, backgroundColor: colors.bg }]}>
+                {lines.join('\n')}
+            </Text>
+        );
+    };
+
+    const renderLivePreview = () => {
+        if (!scan) {
+            return <ActivityIndicator size="small" color={colors.primary} />;
+        }
+        switch (selectedFormat) {
+            case 'xlsx':
+            case 'docx':
+                return renderTablePreview() || renderParagraphPreview();
+            case 'pdf':
+                return scan.tableData ? renderTablePreview() : renderParagraphPreview();
+            case 'csv':
+                return renderCsvPreview();
+            case 'json':
+                return renderJsonPreview();
+            default:
+                return renderParagraphPreview();
+        }
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -163,7 +297,7 @@ const ExportScreen: React.FC = () => {
                     </View>
                 </View>
 
-                {/* Preview Summary */}
+                {/* Live Preview */}
                 <Text style={[styles.sectionTitle, { color: colors.text1 }]}>Preview</Text>
                 <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.previewRow}>
@@ -172,21 +306,9 @@ const ExportScreen: React.FC = () => {
                             {selectedFormatInfo?.icon} {selectedFormatInfo?.name} ({selectedFormatInfo?.extension})
                         </Text>
                     </View>
-                    <View style={styles.previewRow}>
-                        <Text style={[styles.previewLabel, { color: colors.text2 }]}>Scan ID</Text>
-                        <Text style={[styles.previewValue, { color: colors.text1 }]}>{route.params.scanId}</Text>
-                    </View>
-                    <View style={styles.previewRow}>
-                        <Text style={[styles.previewLabel, { color: colors.text2 }]}>Confidence</Text>
-                        <Text style={[styles.previewValue, { color: colors.text1 }]}>
-                            {includeConfidence ? 'Included' : 'Excluded'}
-                        </Text>
-                    </View>
-                    <View style={styles.previewRow}>
-                        <Text style={[styles.previewLabel, { color: colors.text2 }]}>Orig. Image</Text>
-                        <Text style={[styles.previewValue, { color: colors.text1 }]}>
-                            {includeOriginalImage ? 'Attached' : 'Not included'}
-                        </Text>
+                    <View style={[styles.previewDivider, { backgroundColor: colors.border }]} />
+                    <View style={styles.livePreviewArea}>
+                        {renderLivePreview()}
                     </View>
                 </View>
             </ScrollView>
@@ -296,6 +418,18 @@ const styles = StyleSheet.create({
     },
     previewLabel: { fontSize: 13, fontFamily: typography.caption.fontFamily },
     previewValue: { fontSize: 13, fontWeight: '600', fontFamily: typography.body.fontFamily },
+    previewDivider: { height: 1, marginVertical: spacing.sm },
+    livePreviewArea: { minHeight: 60, paddingTop: spacing.xs },
+    previewEmpty: { fontSize: 12, fontStyle: 'italic' },
+    previewTableRow: { flexDirection: 'row' },
+    previewTh: { paddingHorizontal: 8, paddingVertical: 6, borderWidth: 0.5, minWidth: 70 },
+    previewThText: { fontSize: 11, fontWeight: '700', fontFamily: typography.caption.fontFamily },
+    previewTd: { paddingHorizontal: 8, paddingVertical: 5, borderWidth: 0.5, minWidth: 70 },
+    previewTdText: { fontSize: 11, fontFamily: typography.caption.fontFamily },
+    previewMore: { fontSize: 11, fontStyle: 'italic', marginTop: spacing.xs },
+    previewBlockText: { fontSize: 12, lineHeight: 18, marginBottom: spacing.xs, fontFamily: typography.body.fontFamily },
+    previewJson: { fontSize: 11, fontFamily: 'monospace', padding: spacing.sm, borderRadius: radius.input, overflow: 'hidden' },
+    previewCsv: { fontSize: 11, fontFamily: 'monospace', padding: spacing.sm, borderRadius: radius.input },
 
     // Action bar
     actionBar: {

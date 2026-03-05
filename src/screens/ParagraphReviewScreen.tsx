@@ -109,6 +109,10 @@ const ParagraphReviewScreen: React.FC = () => {
         navigation.navigate(ROUTES.EXPORT, { scanId: route.params.scanId });
     }, [navigation, route.params.scanId]);
 
+    const handleEditText = useCallback(() => {
+        navigation.navigate(ROUTES.TEXT_EDITOR as any, { scanId: route.params.scanId });
+    }, [navigation, route.params.scanId]);
+
     if (isLoading) {
         return (
             <View style={[styles.container, styles.loadingCenter, { backgroundColor: colors.bg }]}>
@@ -288,7 +292,13 @@ const ParagraphReviewScreen: React.FC = () => {
                         Alert.alert('Copied', 'All text copied to clipboard');
                     }}
                 >
-                    <Text style={[styles.copyBtnText, { color: colors.primary }]}>📋 Copy All</Text>
+                    <Text style={[styles.copyBtnText, { color: colors.primary }]}>📋 Copy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.editTextBtn, { borderColor: colors.primary }]}
+                    onPress={handleEditText}
+                >
+                    <Text style={[styles.editTextBtnText, { color: colors.primary }]}>✏️ Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.exportBtn, { backgroundColor: colors.primary }]} onPress={handleExport}>
                     <Text style={styles.exportBtnText}>📤 Export</Text>
@@ -367,10 +377,12 @@ const styles = StyleSheet.create({
     saveBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', fontFamily: typography.button.fontFamily },
 
     // Action bar
-    actionBar: { flexDirection: 'row', padding: spacing.base, gap: spacing.md, borderTopWidth: 1 },
-    copyBtn: { flex: 2, height: 48, borderWidth: 1.5, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
-    copyBtnText: { fontSize: 15, fontWeight: '600', fontFamily: typography.button.fontFamily },
-    exportBtn: { flex: 3, height: 52, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
+    actionBar: { flexDirection: 'row', padding: spacing.base, gap: spacing.sm, borderTopWidth: 1 },
+    copyBtn: { flex: 1, height: 48, borderWidth: 1.5, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
+    copyBtnText: { fontSize: 14, fontWeight: '600', fontFamily: typography.button.fontFamily },
+    editTextBtn: { flex: 1, height: 48, borderWidth: 1.5, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
+    editTextBtnText: { fontSize: 14, fontWeight: '600', fontFamily: typography.button.fontFamily },
+    exportBtn: { flex: 2, height: 52, borderRadius: radius.button, justifyContent: 'center', alignItems: 'center' },
     exportBtnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: typography.button.fontFamily },
 });
 

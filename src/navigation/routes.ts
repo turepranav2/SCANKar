@@ -18,6 +18,7 @@ export const ROUTES = {
     TABLE_REVIEW: 'TableReview',
     PARAGRAPH_REVIEW: 'ParagraphReview',
     TABLE_EDITOR: 'TableEditor',
+    TEXT_EDITOR: 'TextEditor',
     EXPORT: 'Export',
 
     // History Stack screens

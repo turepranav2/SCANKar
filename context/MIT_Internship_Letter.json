@@ -1,0 +1,68 @@
+{
+  "document_type": "Internship Permission Letter",
+  "ref_number": "MIT/A/IPT/2025-26/640",
+  "date": "30/12/2025",
+  "institution": {
+    "name": "Maharashtra Institute of Technology",
+    "mandal": "G S Mandal's",
+    "location": "Chhatrapati Sambhajinagar",
+    "type": "Autonomous Institute",
+    "accreditation": "Grade A by NAAC",
+    "approved_by": "All India Council for Technical Education (AICTE), New Delhi",
+    "affiliated_to": "Dr. Babasaheb Ambedkar Marathwada University, Chhatrapati Sambhajinagar",
+    "dte_code": "2113",
+    "address": "NH-211, MIT Campus, Satara Village Road, Chhatrapati Sambhajinagar 431 010 (M.S.), India",
+    "phone_director": "(0240) 2375111",
+    "phone_office": "2375355",
+    "email": "director.mitt@mit.asia",
+    "website": "https://www.mit.asia"
+  },
+  "recipient": {
+    "designation": "The HR Manager / Executive / Director",
+    "organization": "Endurance Technologies"
+  },
+  "subject": "Request and permission letter for internship for Mr. Pranav Ashok Ture (Final Year B.Tech. AI&DS)",
+  "student": {
+    "name": "Mr. Pranav Ashok Ture",
+    "year": "Final Year",
+    "degree": "B.Tech",
+    "branch": "Artificial Intelligence and Data Science (AI&DS)"
+  },
+  "internship": {
+    "start_date": "02 January 2026",
+    "end_date": "31 May 2026",
+    "semester": "Eighth (Final)",
+    "evaluation": "Monthly basis by the institute",
+    "deliverables": [
+      "Project report",
+      "Seminar for final award of degree"
+    ]
+  },
+  "programs_offered": [
+    "Agricultural Engineering",
+    "Artificial Intelligence and Data Science",
+    "Civil Engineering",
+    "Computer Science & Engineering",
+    "Computer Science & Design",
+    "Electronics and Computer Engineering",
+    "Electrical Engineering",
+    "Mechanical Engineering",
+    "Plastic & Polymer Engineering",
+    "MCA"
+  ],
+  "areas_of_contribution": [
+    "Product Development",
+    "Cost Reduction",
+    "Research and Development",
+    "Quality Control",
+    "Process Improvement, System improvement",
+    "Enhancing Productivity",
+    "Energy Conservation",
+    "Management Information Systems"
+  ],
+  "signatory": {
+    "name": "Dr Kiran Khandarkar",
+    "designation": "Departmental Faculty Coordinator, Training, Placement and Entrepreneurship",
+    "mobile": "9860010087"
+  }
+}

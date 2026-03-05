@@ -1,7 +1,7 @@
 // SCANKar — Table Editor Screen (Screen 08)
 // Full-screen editable table grid with toolbar
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     StyleSheet,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +22,8 @@ import { HomeStackParamList } from '../navigation/MainNavigator';
 import { typography } from '../theme/typography';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { generateId } from '../utils/formatters';
+import { getScan, saveScan } from '../services/storage/ScanStorage';
+import { Scan } from '../models/Scan';
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type EditorRouteProp = RouteProp<HomeStackParamList, typeof ROUTES.TABLE_EDITOR>;
@@ -31,37 +34,49 @@ interface CellData {
     isEdited: boolean;
 }
 
-// Initial demo grid
-const createInitialGrid = (): CellData[][] => [
-    [
-        { text: 'Sr', confidence: 1, isEdited: false },
-        { text: 'Item', confidence: 1, isEdited: false },
-        { text: 'Qty', confidence: 1, isEdited: false },
-        { text: 'Rate', confidence: 1, isEdited: false },
-        { text: 'Amount', confidence: 1, isEdited: false },
-    ],
-    [
-        { text: '1', confidence: 0.98, isEdited: false },
-        { text: 'Cement OPC 53 Grade', confidence: 0.95, isEdited: false },
-        { text: '100', confidence: 0.97, isEdited: false },
-        { text: '380', confidence: 0.96, isEdited: false },
-        { text: '38,000', confidence: 0.94, isEdited: false },
-    ],
-    [
-        { text: '2', confidence: 0.99, isEdited: false },
-        { text: 'TMT Steel Bars 12mm', confidence: 0.88, isEdited: false },
-        { text: '50', confidence: 0.96, isEdited: false },
-        { text: '65,000', confidence: 0.72, isEdited: false },
-        { text: '32,50,000', confidence: 0.68, isEdited: false },
-    ],
-    [
-        { text: '3', confidence: 0.97, isEdited: false },
-        { text: 'River Sand (Fine)', confidence: 0.92, isEdited: false },
-        { text: '200', confidence: 0.95, isEdited: false },
-        { text: '1,200', confidence: 0.91, isEdited: false },
-        { text: '2,40,000', confidence: 0.93, isEdited: false },
-    ],
-];
+// Build grid from real scan data
+function buildGridFromScan(scan: Scan): CellData[][] {
+    const grid: CellData[][] = [];
+    if (scan.tableData) {
+        // Header row
+        if (scan.tableData.headers && scan.tableData.headers.length > 0) {
+            grid.push(
+                scan.tableData.headers.map(h => ({
+                    text: h.value,
+                    confidence: h.confidence,
+                    isEdited: false,
+                })),
+            );
+        }
+        // Data rows
+        if (scan.tableData.rows) {
+            for (const row of scan.tableData.rows) {
+                grid.push(
+                    row.map(cell => ({
+                        text: cell.value,
+                        confidence: cell.confidence,
+                        isEdited: false,
+                    })),
+                );
+            }
+        } else if (scan.tableData.cells) {
+            for (const row of scan.tableData.cells) {
+                grid.push(
+                    row.map(cell => ({
+                        text: cell.text,
+                        confidence: cell.confidence,
+                        isEdited: false,
+                    })),
+                );
+            }
+        }
+    }
+    // Fallback if empty
+    if (grid.length === 0) {
+        grid.push([{ text: '', confidence: 1, isEdited: false }]);
+    }
+    return grid;
+}
 
 const TableEditorScreen: React.FC = () => {
     const navigation = useNavigation<NavProp>();
@@ -69,9 +84,24 @@ const TableEditorScreen: React.FC = () => {
     const { colors } = useTheme();
     const { pushEdit, canUndo, canRedo, undo, redo } = useScan();
 
-    const [grid, setGrid] = useState<CellData[][]>(createInitialGrid);
+    const [grid, setGrid] = useState<CellData[][]>([[{ text: '', confidence: 1, isEdited: false }]]);
     const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
     const [editText, setEditText] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [scanRef, setScanRef] = useState<Scan | null>(null);
+
+    // Load real scan data from AsyncStorage
+    useEffect(() => {
+        const loadScan = async () => {
+            const data = await getScan(route.params.scanId);
+            if (data) {
+                setScanRef(data);
+                setGrid(buildGridFromScan(data));
+            }
+            setIsLoading(false);
+        };
+        loadScan();
+    }, [route.params.scanId]);
 
     const numRows = grid.length;
     const numCols = grid[0]?.length ?? 0;
@@ -155,13 +185,42 @@ const TableEditorScreen: React.FC = () => {
         }
     }, [redo]);
 
-    const handleDone = useCallback(() => {
+    const handleDone = useCallback(async () => {
         handleCellUpdate();
+        // Save edited grid back to AsyncStorage
+        if (scanRef) {
+            const updatedScan: Scan = { ...scanRef, isEdited: true };
+            if (updatedScan.tableData) {
+                // Update headers from row 0
+                if (grid[0]) {
+                    updatedScan.tableData.headers = grid[0].map((cell, i) => ({
+                        id: `h_${i}`,
+                        value: cell.text,
+                        confidence: cell.confidence,
+                    }));
+                }
+                // Update rows from row 1+
+                updatedScan.tableData.rows = grid.slice(1).map(row =>
+                    row.map((cell, i) => ({
+                        id: `c_${i}`,
+                        value: cell.text,
+                        confidence: cell.confidence,
+                    })),
+                );
+            }
+            await saveScan(updatedScan);
+        }
         navigation.goBack();
-    }, [navigation, handleCellUpdate]);
+    }, [navigation, handleCellUpdate, scanRef, grid]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.bg }]}>
+            {isLoading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+            ) : (
+            <>
             {/* Top Bar */}
             <TopBar
                 title="Edit Table"
@@ -284,6 +343,8 @@ const TableEditorScreen: React.FC = () => {
                         <Text style={styles.confirmBtnText}>✓</Text>
                     </TouchableOpacity>
                 </View>
+            )}
+            </>
             )}
         </View>
     );

@@ -4,6 +4,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { ROUTES } from './routes';
 import { useTheme } from '../context/ThemeContext';
 import { typography } from '../theme';
@@ -17,11 +18,10 @@ import TableReviewScreen from '../screens/TableReviewScreen';
 import TableEditorScreen from '../screens/TableEditorScreen';
 import ParagraphReviewScreen from '../screens/ParagraphReviewScreen';
 import ExportScreen from '../screens/ExportScreen';
+import TextEditorScreen from '../screens/TextEditorScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ModelStatusScreen from '../screens/ModelStatusScreen';
-
-// All screens are now real implementations (Modules 0–9 complete)
 
 // ─── Param Lists ───
 
@@ -33,6 +33,7 @@ export type HomeStackParamList = {
     [ROUTES.TABLE_REVIEW]: { scanId: string };
     [ROUTES.PARAGRAPH_REVIEW]: { scanId: string };
     [ROUTES.TABLE_EDITOR]: { scanId: string };
+    [ROUTES.TEXT_EDITOR]: { scanId: string };
     [ROUTES.EXPORT]: { scanId: string };
 };
 
@@ -41,6 +42,7 @@ export type HistoryStackParamList = {
     [ROUTES.TABLE_REVIEW]: { scanId: string };
     [ROUTES.PARAGRAPH_REVIEW]: { scanId: string };
     [ROUTES.TABLE_EDITOR]: { scanId: string };
+    [ROUTES.TEXT_EDITOR]: { scanId: string };
     [ROUTES.EXPORT]: { scanId: string };
 };
 
@@ -68,6 +70,7 @@ const HomeStackNavigator: React.FC = () => (
         <HomeStack.Screen name={ROUTES.TABLE_REVIEW} component={TableReviewScreen} />
         <HomeStack.Screen name={ROUTES.PARAGRAPH_REVIEW} component={ParagraphReviewScreen} />
         <HomeStack.Screen name={ROUTES.TABLE_EDITOR} component={TableEditorScreen} />
+        <HomeStack.Screen name={ROUTES.TEXT_EDITOR} component={TextEditorScreen} />
         <HomeStack.Screen name={ROUTES.EXPORT} component={ExportScreen} />
     </HomeStack.Navigator>
 );
@@ -82,6 +85,7 @@ const HistoryStackNavigator: React.FC = () => (
         <HistoryStack.Screen name={ROUTES.TABLE_REVIEW} component={TableReviewScreen} />
         <HistoryStack.Screen name={ROUTES.PARAGRAPH_REVIEW} component={ParagraphReviewScreen} />
         <HistoryStack.Screen name={ROUTES.TABLE_EDITOR} component={TableEditorScreen} />
+        <HistoryStack.Screen name={ROUTES.TEXT_EDITOR} component={TextEditorScreen} />
         <HistoryStack.Screen name={ROUTES.EXPORT} component={ExportScreen} />
     </HistoryStack.Navigator>
 );
@@ -127,17 +131,32 @@ export const MainNavigator: React.FC = () => {
             <Tab.Screen
                 name={ROUTES.HOME_TAB}
                 component={HomeStackNavigator}
-                options={{ tabBarLabel: 'Home' }}
+                options={{
+                    tabBarLabel: 'Home',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="home-outline" size={size} color={color} />
+                    ),
+                }}
             />
             <Tab.Screen
                 name={ROUTES.HISTORY_TAB}
                 component={HistoryStackNavigator}
-                options={{ tabBarLabel: 'History' }}
+                options={{
+                    tabBarLabel: 'History',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="time-outline" size={size} color={color} />
+                    ),
+                }}
             />
             <Tab.Screen
                 name={ROUTES.SETTINGS_TAB}
                 component={SettingsStackNavigator}
-                options={{ tabBarLabel: 'Settings' }}
+                options={{
+                    tabBarLabel: 'Settings',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="settings-outline" size={size} color={color} />
+                    ),
+                }}
             />
         </Tab.Navigator>
     );
